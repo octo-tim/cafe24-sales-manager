@@ -196,13 +196,13 @@ var API_BASE=window.location.origin,charts={},dashboardData=null;
 //  ORDER COLLECTOR UI
 // ═══════════════════════════════════════════════
 
-async function runCollect(btn) {
-  // 모든 수집 버튼 동기화
+async function runCollect(btn, days) {
+  days = days || 1;
   var btns = document.querySelectorAll('.collect-btn');
   btns.forEach(function(b){b.classList.add('running')});
 
   try {
-    var r = await fetch(API_BASE + '/api/collector/run', {method:'POST'});
+    var r = await fetch(API_BASE + '/api/collector/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days:days})});
     var j = await r.json();
     if (j.success && j.data) {
       showCollectResult(j.data);
