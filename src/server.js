@@ -36,6 +36,11 @@ app.use(express.json());
 // 정적 파일 서빙 (프론트엔드)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// 매칭 엔진 라우트
+const matcherRoutes = require("./matcher-routes");
+app.use("/api/matcher", matcherRoutes);
+app.set("cafe24", cafe24);
+
 
 // ═══════════════════════════════════════════════
 //  A. OAuth 인증 라우트
