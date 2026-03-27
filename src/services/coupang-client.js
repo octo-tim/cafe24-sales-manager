@@ -47,7 +47,7 @@ class CoupangClient {
     do {
       const r = await this.getOrders({ createdAtFrom: startDate, createdAtTo: endDate, maxPerPage: 50, nextToken });
       all.push(...(r?.data || [])); nextToken = r?.nextToken || ''; page++;
-      if (page >= 50) break;
+      if (page >= 200) break;
     } while (nextToken);
     console.log(`[Coupang] ${all.length}건 (${page}p)`); return all;
   }

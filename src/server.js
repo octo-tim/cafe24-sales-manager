@@ -97,38 +97,24 @@ const collector = {
     console.log(`[Collector] ${trigger === 'manual' ? '수동' : '자동'} 주문 수집 (${collectStart} ~ ${collectEnd}, ${periodDays}일)`);
 
     const results = await Promise.allSettled([
-      // 카페24: getAllOrders로 전체 페이지네이션 처리
+      // 카페24: 항상 getAllOrders로 전체 주문 수집 (페이지네이션 자동)
       this.collectChannel('카페24', async () => {
         if (!cafe24.tokens?.access_token) throw new Error('미인증');
-        if (periodDays <= 1) {
-          return cafe24.getOrders({ start_date: collectStart, end_date: collectEnd, limit: 100, embed: 'items' });
-        }
-        // 기간이 길면 getAllOrders 사용 (병렬 페이징)
         const orders = await cafe24.getAllOrders(collectStart, collectEnd);
         return { orders };
       }),
-      // 쿠팡
+      // 쿠팡: 항상 getAllOrders로 전체 주문 수집
       this.collectChannel('쿠팡', async () => {
         if (!coupang) throw new Error('미설정');
-        if (periodDays <= 1) {
-          return coupang.getOrders({
-            createdAtFrom: new Date(collectStart).toISOString(),
-            createdAtTo: new Date(collectEnd + 'T23:59:59').toISOString(),
-            maxPerPage: 50
-          });
-        }
         const orders = await coupang.getAllOrders(
           new Date(collectStart).toISOString(),
           new Date(collectEnd + 'T23:59:59').toISOString()
         );
         return { data: orders };
       }),
-      // 네이버
+      // 네이버: 항상 getAllOrders로 전체 주문 수집
       this.collectChannel('네이버', async () => {
         if (!naver) throw new Error('미설정');
-        if (periodDays <= 1) {
-          return naver.getOrders({ searchType: 'PAYED', startDate: collectStart, endDate: collectEnd });
-        }
         const orders = await naver.getAllOrders(collectStart, collectEnd);
         return { data: orders };
       }),
