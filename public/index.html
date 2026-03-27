@@ -51,6 +51,9 @@ tr:hover td{background:var(--bg3)}
 .period select,.period input[type=date]{padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none}
 .period button{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;background:var(--grn);color:var(--bg)}
 canvas{max-height:300px}
+.sf-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;background:transparent;color:var(--t3);transition:all .15s}
+.sf-btn.on{background:var(--bg2);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sf-btn:hover{color:var(--t1)}
 /* ── Collector Panel ── */
 .collect-btn{padding:8px 18px;border-radius:8px;border:1px solid var(--bd);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;background:var(--bg3);color:var(--t1);transition:all .15s;display:inline-flex;align-items:center;gap:6px}
 .collect-btn:hover{border-color:var(--grn);color:var(--grn)}
@@ -151,10 +154,23 @@ canvas{max-height:300px}
 
 <!-- ═══ TAB: 매출 분석 ═══ -->
 <div id="tab-sales" class="hide">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="font-size:20px;font-weight:700">매출 분석</h2><div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis()">조회</button></div></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:20px;font-weight:700">매출 분석</h2>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="salesChannelFilter" style="display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:2px">
+        <button class="sf-btn on" onclick="setSalesChannel('all',this)" data-ch="all">전체</button>
+        <button class="sf-btn" onclick="setSalesChannel('카페24',this)" data-ch="카페24"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--c24);vertical-align:middle;margin-right:3px"></span>카페24</button>
+        <button class="sf-btn" onclick="setSalesChannel('쿠팡',this)" data-ch="쿠팡"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--cpg);vertical-align:middle;margin-right:3px"></span>쿠팡</button>
+        <button class="sf-btn" onclick="setSalesChannel('네이버',this)" data-ch="네이버"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--nvr);vertical-align:middle;margin-right:3px"></span>네이버</button>
+      </div>
+      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis()">조회</button></div>
+    </div>
+  </div>
   <div class="g4" id="salesKpi"></div>
-  <div class="cd"><div class="ct">일별 매출 추이</div><canvas id="dailySalesChart"></canvas><div class="legend"><span><span class="sq" style="background:var(--c24)"></span>카페24</span><span><span class="sq" style="background:var(--cpg)"></span>쿠팡</span><span><span class="sq" style="background:var(--nvr)"></span>네이버</span></div></div>
+  <div id="salesChannelCards" class="g3" style="margin-bottom:12px"></div>
+  <div class="cd"><div class="ct">일별 매출 추이<span id="salesChartLabel" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div><canvas id="dailySalesChart"></canvas><div class="legend" id="salesLegend"></div></div>
   <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 주문 패턴</div><canvas id="hourlyChart"></canvas></div></div>
+  <div class="cd" id="salesDailyTable" style="display:none"><div class="ct">일별 채널 매출 상세</div><div style="max-height:400px;overflow-y:auto"><table><thead><tr><th>날짜</th><th>카페24</th><th>쿠팡</th><th>네이버</th><th>합계</th></tr></thead><tbody id="salesDailyBody"></tbody></table></div></div>
 </div>
 
 <!-- ═══ TAB: 채널 비교 ═══ -->
@@ -371,7 +387,98 @@ function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.ge
 function changePeriod(){dashboardData=generateDemoData(parseInt(document.getElementById('periodSelect').value));renderOverview()}
 function kpiCard(l,v,t,d,s){return'<div class="kp"><div class="lb">'+l+'</div><div class="vl">'+v+'</div>'+(t?'<div class="tr '+d+'">'+t+'</div>':'')+'<div class="sb">'+(s||'')+'</div></div>'}
 function renderOverview(){if(!dashboardData)dashboardData=generateDemoData(30);var data=dashboardData;document.getElementById('kpiCards').innerHTML=kpiCard('총 매출',fK(data.summary.totalRevenue),'+'+data.trends.revenue+'%','up','전월 대비')+kpiCard('총 주문',fN(data.summary.totalOrders)+'건','+'+data.trends.orders+'%','up','전월 대비')+kpiCard('평균 주문가',fK(data.summary.avgOrderValue),'+'+data.trends.avgOrder+'%','up','전월 대비')+kpiCard('활성 채널','3개','','','카페24·쿠팡·네이버');document.getElementById('periodLabel').textContent='최근 '+data.dailySales.length+'일';makeChart('salesTrendChart',{type:'line',data:{labels:data.dailySales.map(function(d){return d.date}),datasets:[{label:'카페24',data:data.dailySales.map(function(d){return d['카페24']}),borderColor:'#3266ad',backgroundColor:'#3266ad20',fill:true,tension:.3,pointRadius:0,borderWidth:1.5},{label:'쿠팡',data:data.dailySales.map(function(d){return d['쿠팡']}),borderColor:'#e24b4a',backgroundColor:'#e24b4a20',fill:true,tension:.3,pointRadius:0,borderWidth:1.5},{label:'네이버',data:data.dailySales.map(function(d){return d['네이버']}),borderColor:'#1d9e75',backgroundColor:'#1d9e7520',fill:true,tension:.3,pointRadius:0,borderWidth:1.5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});makeChart('channelPieChart',{type:'doughnut',data:{labels:data.channels.map(function(c){return c.channel}),datasets:[{data:data.channels.map(function(c){return c.revenue}),backgroundColor:data.channels.map(function(c){return c.color}),borderWidth:0}]},options:{responsive:true,cutout:'65%',plugins:{legend:{display:false}}}});var sh='';data.channels.forEach(function(c){sh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span class="ch-badge"><span class="ic" style="background:'+c.color+'"></span>'+c.channel+'</span><span style="font-weight:600">'+fP(c.sharePercent)+' · '+fK(c.revenue)+'</span></div>'});document.getElementById('channelShareList').innerHTML=sh;var th='';data.channels.forEach(function(c){var tr=c.prevRevenue?Math.round((c.revenue-c.prevRevenue)/c.prevRevenue*1000)/10:0;th+='<tr><td><span class="ch-badge"><span class="ic" style="background:'+c.color+'"></span>'+c.channel+'</span></td><td style="font-weight:600">'+fK(c.revenue)+'</td><td>'+fN(c.orders)+'</td><td>'+fK(c.avgOrder)+'</td><td>'+fP(c.sharePercent)+'</td><td><span class="tr '+(tr>=0?'up':'dn')+'">'+(tr>=0?'+':'')+tr+'%</span></td></tr>'});document.getElementById('channelTable').innerHTML=th;var bh='',mx=data.topProducts[0]?data.topProducts[0].totalRevenue:1;data.topProducts.slice(0,10).forEach(function(p){var pct=Math.round(p.totalRevenue/mx*100),c24p=Math.round((p['카페24']?p['카페24'].revenue:0)/p.totalRevenue*100),cpgp=Math.round((p['쿠팡']?p['쿠팡'].revenue:0)/p.totalRevenue*100),nvrp=100-c24p-cpgp;bh+='<div class="bar-row"><div class="bar-label">'+p.name+'</div><div class="bar-track"><div style="display:flex;height:100%;width:'+pct+'%;transition:width .6s ease"><div style="width:'+c24p+'%;background:#3266ad;height:100%;border-radius:4px 0 0 4px"></div><div style="width:'+cpgp+'%;background:#e24b4a;height:100%"></div><div style="width:'+nvrp+'%;background:#1d9e75;height:100%;border-radius:0 4px 4px 0"></div></div></div><div class="bar-val">'+fK(p.totalRevenue)+'</div></div>'});document.getElementById('topProductBars').innerHTML=bh}
-function loadSalesAnalysis(){var data=dashboardData||generateDemoData(30),avg=Math.round(data.summary.totalRevenue/data.dailySales.length);document.getElementById('salesKpi').innerHTML=kpiCard('기간 매출',fK(data.summary.totalRevenue),'','',data.dailySales.length+'일간')+kpiCard('일평균 매출',fK(avg),'','','')+kpiCard('기간 주문',fN(data.summary.totalOrders)+'건','','','')+kpiCard('객단가',fK(data.summary.avgOrderValue),'','','');makeChart('dailySalesChart',{type:'bar',data:{labels:data.dailySales.map(function(d){return d.date}),datasets:[{label:'카페24',data:data.dailySales.map(function(d){return d['카페24']}),backgroundColor:'#3266ad',borderWidth:0,borderRadius:2},{label:'쿠팡',data:data.dailySales.map(function(d){return d['쿠팡']}),backgroundColor:'#e24b4a',borderWidth:0,borderRadius:2},{label:'네이버',data:data.dailySales.map(function(d){return d['네이버']}),backgroundColor:'#1d9e75',borderWidth:0,borderRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:function(v){return fK(v)}}}}}});var dt=[0,0,0,0,0,0,0],dc=[0,0,0,0,0,0,0];data.dailySales.forEach(function(d){dt[d.dow]+=d.total;dc[d.dow]++});var da=dt.map(function(t,i){return dc[i]>0?Math.round(t/dc[i]):0});makeChart('weekdayChart',{type:'bar',data:{labels:['일','월','화','수','목','금','토'],datasets:[{data:da,backgroundColor:da.map(function(v,i){return i===0||i===6?'#e24b4a':'#3266ad'}),borderWidth:0,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});var hrs=[];for(var h=0;h<24;h++){var b=h>=10&&h<=22?80:20,pk=(h>=12&&h<=14)||(h>=20&&h<=22)?1.5:1;hrs.push(Math.round(b*pk*(.8+Math.random()*.4)))}makeChart('hourlyChart',{type:'line',data:{labels:hrs.map(function(_,i){return i+'시'}),datasets:[{data:hrs,borderColor:'#A78BFA',backgroundColor:'#A78BFA20',fill:true,tension:.4,pointRadius:0,borderWidth:1.5}]},options:{responsive:true,plugins:{legend:{display:false}}}})}
+var salesChannel = 'all';
+var chMeta = {"카페24":{color:'#3266ad'},"쿠팡":{color:'#e24b4a'},"네이버":{color:'#1d9e75'}};
+
+function setSalesChannel(ch, btn) {
+  salesChannel = ch;
+  document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('on')});
+  if(btn) btn.classList.add('on');
+  else { var el=document.querySelector('.sf-btn[data-ch="'+ch+'"]'); if(el)el.classList.add('on'); }
+  loadSalesAnalysis();
+}
+
+function loadSalesAnalysis(){
+  var data = dashboardData || generateDemoData(30);
+  var ch = salesChannel;
+  var isAll = ch === 'all';
+  var days = data.dailySales.length;
+
+  var chTotals = {};
+  ['카페24','쿠팡','네이버'].forEach(function(name){
+    var rev = data.dailySales.reduce(function(s,d){return s + (d[name]||0)},0);
+    var orders = Math.round(rev / (120000 + Math.random()*30000));
+    chTotals[name] = {revenue:rev, orders:orders, avgOrder: orders>0?Math.round(rev/orders):0, color:chMeta[name].color};
+  });
+  var totalRev = data.summary.totalRevenue;
+  var totalOrd = data.summary.totalOrders;
+
+  if (isAll) {
+    var avg = Math.round(totalRev / days);
+    document.getElementById('salesKpi').innerHTML =
+      kpiCard('기간 매출', fK(totalRev), '', '', days+'일간') +
+      kpiCard('일평균 매출', fK(avg), '', '', '') +
+      kpiCard('기간 주문', fN(totalOrd)+'건', '', '', '') +
+      kpiCard('객단가', fK(data.summary.avgOrderValue), '', '', '');
+  } else {
+    var ct = chTotals[ch];
+    var avg = Math.round(ct.revenue / days);
+    var share = totalRev > 0 ? (ct.revenue/totalRev*100).toFixed(1) : '0';
+    document.getElementById('salesKpi').innerHTML =
+      kpiCard(ch+' 매출', fK(ct.revenue), '', '', days+'일간') +
+      kpiCard('일평균', fK(avg), '', '', '전체 대비 '+share+'%') +
+      kpiCard('주문 수', fN(ct.orders)+'건', '', '', '') +
+      kpiCard('객단가', fK(ct.avgOrder), '', '', '');
+  }
+
+  var ccEl = document.getElementById('salesChannelCards');
+  if (isAll && ccEl) {
+    var ccH = '';
+    ['카페24','쿠팡','네이버'].forEach(function(name){
+      var ct = chTotals[name]; var share = totalRev > 0 ? (ct.revenue/totalRev*100).toFixed(1) : '0'; var avgD = Math.round(ct.revenue / days);
+      ccH += '<div class="kp" style="border-left:3px solid '+ct.color+';cursor:pointer" onclick="setSalesChannel(''+name+'',null)">';
+      ccH += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:13px;font-weight:700">'+name+'</span><span style="font-size:10px;color:var(--t3)">'+share+'%</span></div>';
+      ccH += '<div style="font-size:18px;font-weight:700;margin-bottom:4px">'+fK(ct.revenue)+'</div>';
+      ccH += '<div style="display:flex;gap:16px;font-size:11px;color:var(--t2)"><span>주문 '+fN(ct.orders)+'</span><span>객단가 '+fK(ct.avgOrder)+'</span><span>일평균 '+fK(avgD)+'</span></div></div>';
+    });
+    ccEl.innerHTML = ccH; ccEl.style.display = '';
+  } else if (ccEl) { ccEl.style.display = 'none'; }
+
+  var labelEl = document.getElementById('salesChartLabel');
+  if (labelEl) labelEl.textContent = isAll ? '(전체 채널 합산)' : '('+ch+' 단독)';
+
+  var lgEl = document.getElementById('salesLegend');
+  if (lgEl) {
+    if (isAll) lgEl.innerHTML = '<span><span class="sq" style="background:var(--c24)"></span>카페24</span><span><span class="sq" style="background:var(--cpg)"></span>쿠팡</span><span><span class="sq" style="background:var(--nvr)"></span>네이버</span>';
+    else lgEl.innerHTML = '<span><span class="sq" style="background:'+chMeta[ch].color+'"></span>'+ch+'</span>';
+  }
+
+  if (isAll) {
+    makeChart('dailySalesChart',{type:'bar',data:{labels:data.dailySales.map(function(d){return d.date}),datasets:[
+      {label:'카페24',data:data.dailySales.map(function(d){return d['카페24']}),backgroundColor:'#3266ad',borderWidth:0,borderRadius:2},
+      {label:'쿠팡',data:data.dailySales.map(function(d){return d['쿠팡']}),backgroundColor:'#e24b4a',borderWidth:0,borderRadius:2},
+      {label:'네이버',data:data.dailySales.map(function(d){return d['네이버']}),backgroundColor:'#1d9e75',borderWidth:0,borderRadius:2}
+    ]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:function(v){return fK(v)}}}}}});
+  } else {
+    makeChart('dailySalesChart',{type:'bar',data:{labels:data.dailySales.map(function(d){return d.date}),datasets:[
+      {label:ch,data:data.dailySales.map(function(d){return d[ch]||0}),backgroundColor:chMeta[ch].color,borderWidth:0,borderRadius:3}
+    ]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});
+  }
+
+  var dt=[0,0,0,0,0,0,0],dc=[0,0,0,0,0,0,0];
+  data.dailySales.forEach(function(d){ var val=isAll?d.total:(d[ch]||0); dt[d.dow]+=val; dc[d.dow]++; });
+  var da=dt.map(function(t,i){return dc[i]>0?Math.round(t/dc[i]):0});
+  var dowColor=isAll?da.map(function(v,i){return i===0||i===6?'#e24b4a':'#3266ad'}):da.map(function(){return chMeta[ch].color});
+  makeChart('weekdayChart',{type:'bar',data:{labels:['일','월','화','수','목','금','토'],datasets:[{data:da,backgroundColor:dowColor,borderWidth:0,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});
+
+  var hrs=[];var hColor=isAll?'#A78BFA':chMeta[ch].color;
+  for(var h=0;h<24;h++){var b=h>=10&&h<=22?80:20,pk=(h>=12&&h<=14)||(h>=20&&h<=22)?1.5:1;hrs.push(Math.round(b*pk*(.8+Math.random()*.4)))}
+  makeChart('hourlyChart',{type:'line',data:{labels:hrs.map(function(_,i){return i+'시'}),datasets:[{data:hrs,borderColor:hColor,backgroundColor:hColor+'20',fill:true,tension:.4,pointRadius:0,borderWidth:1.5}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+
+  var tblEl=document.getElementById('salesDailyTable'),tBody=document.getElementById('salesDailyBody');
+  if(isAll&&tblEl&&tBody){tblEl.style.display='';var th='';data.dailySales.slice().reverse().forEach(function(d){th+='<tr><td style="font-size:11px">'+d.date+'</td><td><span class="ch-badge"><span class="ic" style="background:#3266ad"></span>'+fK(d['카페24']||0)+'</span></td><td><span class="ch-badge"><span class="ic" style="background:#e24b4a"></span>'+fK(d['쿠팡']||0)+'</span></td><td><span class="ch-badge"><span class="ic" style="background:#1d9e75"></span>'+fK(d['네이버']||0)+'</span></td><td style="font-weight:600">'+fK(d.total)+'</td></tr>'});tBody.innerHTML=th;}
+  else if(tblEl){tblEl.style.display='none';}
+}
 function renderChannelComparison(){var data=dashboardData||generateDemoData(30),ch='';data.channels.forEach(function(c){ch+='<div class="kp" style="border-left:3px solid '+c.color+'"><div style="font-size:14px;font-weight:700;margin-bottom:10px">'+c.channel+'</div><div style="font-size:11px;color:var(--t3);margin-bottom:3px">매출</div><div style="font-size:20px;font-weight:700;margin-bottom:10px">'+fK(c.revenue)+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px"><div><span style="color:var(--t3)">주문</span><br><b>'+fN(c.orders)+'</b></div><div><span style="color:var(--t3)">객단가</span><br><b>'+fK(c.avgOrder)+'</b></div><div><span style="color:var(--t3)">전환율</span><br><b>'+c.convRate+'%</b></div><div><span style="color:var(--t3)">반품률</span><br><b style="color:var(--red)">'+c.returnRate+'%</b></div></div></div>'});document.getElementById('channelCards').innerHTML=ch;makeChart('channelBarChart',{type:'bar',data:{labels:data.channels.map(function(c){return c.channel}),datasets:[{data:data.channels.map(function(c){return c.revenue}),backgroundColor:data.channels.map(function(c){return c.color}),borderWidth:0,borderRadius:6,barPercentage:.5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});makeChart('avgOrderChart',{type:'bar',data:{labels:data.channels.map(function(c){return c.channel}),datasets:[{data:data.channels.map(function(c){return c.avgOrder}),backgroundColor:data.channels.map(function(c){return c.color}),borderWidth:0,borderRadius:6,barPercentage:.5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});makeChart('returnRateChart',{type:'bar',data:{labels:data.channels.map(function(c){return c.channel}),datasets:[{data:data.channels.map(function(c){return parseFloat(c.returnRate)}),backgroundColor:data.channels.map(function(c){return c.color}),borderWidth:0,borderRadius:6,barPercentage:.5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v+'%'}}}}}})}
 function renderProductAnalysis(){var data=dashboardData||generateDemoData(30),h='';data.topProducts.forEach(function(p,i){h+='<tr><td style="color:var(--t3);font-weight:700">'+(i+1)+'</td><td style="font-weight:500">'+p.name+'</td><td><span class="ch-badge"><span class="ic" style="background:#3266ad"></span>'+fK(p['카페24']?p['카페24'].revenue:0)+'</span></td><td><span class="ch-badge"><span class="ic" style="background:#e24b4a"></span>'+fK(p['쿠팡']?p['쿠팡'].revenue:0)+'</span></td><td><span class="ch-badge"><span class="ic" style="background:#1d9e75"></span>'+fK(p['네이버']?p['네이버'].revenue:0)+'</span></td><td style="font-weight:700">'+fK(p.totalRevenue)+'</td><td>'+fN(p.totalQty)+'</td></tr>'});document.getElementById('productTable').innerHTML=h;var cm={};data.topProducts.forEach(function(p){if(!cm[p.category])cm[p.category]=0;cm[p.category]+=p.totalRevenue});var cats=Object.entries(cm).sort(function(a,b){return b[1]-a[1]}),cc=['#3266ad','#e24b4a','#1d9e75','#A78BFA','#F0B232','#2DD4BF'];makeChart('categoryChart',{type:'doughnut',data:{labels:cats.map(function(c){return c[0]}),datasets:[{data:cats.map(function(c){return c[1]}),backgroundColor:cc.slice(0,cats.length),borderWidth:0}]},options:{responsive:true,cutout:'55%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}}}})}
 function updateChannelStatus(){var h='';[{n:'카페24',c:'#3266ad'},{n:'쿠팡',c:'#e24b4a'},{n:'네이버',c:'#1d9e75'}].forEach(function(ch){h+='<div class="ch-dot"><div class="d" style="background:'+ch.c+'"></div>'+ch.n+'</div>'});document.getElementById('chStatus').innerHTML=h}
