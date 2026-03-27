@@ -364,6 +364,21 @@ function handleApiError(res, err) {
 // ─────────────────────────────────────────────
 //  서버 시작
 // ─────────────────────────────────────────────
+// 디버그 API 테스트
+app.get("/api/debug/test", async function(req, res) {
+  try {
+    var https = require("https");
+    var token = cafe24.tokens ? cafe24.tokens.access_token : null;
+    var mallId = cafe24.config.mallId;
+    var version = cafe24.config.apiVersion;
+    var result = await new Promise(function(resolve, reject) {
+      var options = { hostname: mallId + ".cafe24api.com", path: "/api/v2/admin/orders?limit=1", method: "GET", headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json", "X-Cafe24-Api-Version": version } };
+      var r2 = https.request(options, function(resp) { var d = ""; resp.on("data", function(c) { d += c }); resp.on("end", function() { resolve({ status: resp.statusCode, body: d.substring(0, 2000), req: { host: options.hostname, path: options.path, version: version, token: token ? token.substring(0, 15) + "..." : "null" } }) }) });
+      r2.on("error", reject); r2.end();
+    });
+    res.json(result);
+  } catch (e) { res.json({ error: e.message }) }
+});
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════╗
