@@ -1,10 +1,11 @@
 {
   "name": "cafe24-sales-manager",
-  "version": "1.1.0",
-  "description": "카페24 판매관리 시스템 + 이카운트 재고 매칭",
+  "version": "2.0.0",
+  "description": "카페24 + 쿠팡 + 네이버 멀티채널 판매관리 시스템",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
