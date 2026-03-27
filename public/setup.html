@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카페24 판매관리 대시보드</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0C0D10;--bg2:#14161B;--bg3:#1C1F26;--bg4:#252830;--brd:#2E3140;--brd2:#3D4155;--t1:#E8E6E1;--t2:#9B99A1;--t3:#6B6977;--grn:#4AE68A;--red:#F0605D;--blu:#5B9DF0;--amb:#F0B232;--pur:#A78BFA;--r:14px;--mono:'SF Mono','Fira Code',monospace}
+body{font-family:'Pretendard Variable',-apple-system,sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.page{max-width:1140px;margin:0 auto;padding:28px 24px 60px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+nav .logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;letter-spacing:-.01em}
+nav .logo .dot{width:8px;height:8px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
+nav .tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px}
+nav .tab{padding:7px 18px;border-radius:8px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;font-family:inherit;background:transparent;color:var(--t3);transition:all .2s}
+nav .tab.on{background:var(--grn);color:var(--bg)}
+nav .tab:hover:not(.on){color:var(--t2)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:8px;animation:fadeUp .5s ease both}
+.kpi{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:20px 22px;transition:border-color .2s}
+.kpi:hover{border-color:var(--brd2)}
+.kpi .label{font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px}
+.kpi .val{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.kpi .sub{margin-top:6px;font-size:12.5px;display:flex;gap:8px;align-items:center}
+.kpi .trend{font-weight:600}.kpi .trend.up{color:var(--grn)}.kpi .trend.dn{color:var(--red)}
+.kpi .note{color:var(--t3)}
+.card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:20px;animation:fadeUp .5s ease both}
+.card-title{font-size:14px;font-weight:650;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.sec-title{font-size:16px;font-weight:650;margin:28px 0 14px;display:flex;justify-content:space-between;align-items:center}
+.sec-title small{font-size:12px;color:var(--t3);font-weight:400}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--t2)}
+.legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;color:var(--t3);font-weight:600;font-size:11px;letter-spacing:.03em;text-transform:uppercase;border-bottom:1px solid var(--brd)}
+td{padding:10px 12px;border-bottom:1px solid var(--bg3)}
+tr:hover td{background:var(--bg3)}
+.badge{font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:16px;display:inline-block}
+.badge.ok{background:#4AE68A15;color:var(--grn)}.badge.low{background:#F0B23215;color:var(--amb)}.badge.out{background:#F0605D15;color:var(--red)}
+.bar-bg{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+@media(max-width:768px){.grid2{grid-template-columns:1fr}nav .tabs{display:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span class="dot"></span> 카페24 판매관리</div>
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab('dashboard',this)">대시보드</button>
+    <button class="tab" onclick="switchTab('inventory',this)">재고관리</button>
+    <button class="tab" onclick="location.href='/setup.html'">API 설정</button>
+  </div>
+  <div style="font-size:12px;color:var(--t3)" id="sync-status">동기화 대기중</div>
+</nav>
+
+<div class="page">
+  <div id="app"></div>
+</div>
+
+<script>
+const { createElement: h, useState, useEffect, useMemo, Fragment } = React;
+const { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line } = Recharts;
+
+// ── Globals ──
+let currentTab = 'dashboard';
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  renderApp();
+}
+
+// ── Data ──
+const CH = {cafe24:{name:'카페24',color:'#4AE68A'},coupang:{name:'쿠팡',color:'#F0605D'},naver:{name:'네이버',color:'#5B9DF0'}};
+const PRODS = ['코튼 오버핏 티셔츠','린넨 와이드 팬츠','데님 자켓','울 니트 가디건','캔버스 토트백','레더 크로스백','실크 블라우스','코듀로이 팬츠','캐시미어 머플러','플리스 후드집업','체크 셔츠','스트라이프 원피스'];
+
+function genData() {
+  const now = new Date();
+  const daily = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    const wk = d.getDay()===0||d.getDay()===6 ? 1.3 : 1;
+    daily.push({
+      date: `${d.getMonth()+1}/${d.getDate()}`,
+      cafe24: Math.round((800000+Math.random()*600000)*wk),
+      coupang: Math.round((1200000+Math.random()*900000)*wk),
+      naver: Math.round((600000+Math.random()*500000)*wk),
+    });
+  }
+  const statuses = [
+    {name:'입금대기',value:12,color:'#F0B232'},{name:'결제완료',value:28,color:'#5B9DF0'},
+    {name:'상품준비',value:45,color:'#A78BFA'},{name:'배송중',value:67,color:'#4AE68A'},
+    {name:'배송완료',value:312,color:'#6B6977'},{name:'취소/반품',value:8,color:'#F0605D'},
+  ];
+  const top = PRODS.map((n,i)=>({rank:i+1,name:n,qty:Math.round(80-i*5+Math.random()*20),rev:Math.round(2400000-i*160000+Math.random()*300000)})).sort((a,b)=>b.rev-a.rev).map((p,i)=>({...p,rank:i+1}));
+  const inv = PRODS.map(n=>{const t=Math.floor(Math.random()*200),s=Math.floor(Math.random()*30)+10;return{name:n,sku:'SKU-'+Math.floor(1000+Math.random()*9000),total:t,safety:s,st:t===0?'out':t<=s?'low':'ok'}});
+  const hr = Array.from({length:24},(_,i)=>({h:`${i}시`,v:i<6?Math.floor(Math.random()*3):i<10?Math.floor(Math.random()*8)+3:i<14?Math.floor(Math.random()*15)+8:i<18?Math.floor(Math.random()*12)+5:i<22?Math.floor(Math.random()*18)+10:Math.floor(Math.random()*6)+2}));
+  const td = daily[daily.length-1];
+  const todayRev = td.cafe24+td.coupang+td.naver;
+  const todayOrd = statuses.reduce((s,o)=>s+o.value,0);
+  return {daily,statuses,top,inv,hr,todayRev,todayOrd,avgOV:Math.round(todayRev/Math.max(todayOrd,1)),lowCnt:inv.filter(i=>i.st!=='ok').length};
+}
+const DATA = genData();
+
+// ── Format ──
+const fK = v => v>=1e8?`${(v/1e8).toFixed(1)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:v.toLocaleString();
+const fP = v => `${v>=0?'+':''}${v.toFixed(1)}%`;
+
+// ── Tooltip ──
+function CTip({active,payload,label}) {
+  if(!active||!payload?.length) return null;
+  return h('div',{style:{background:'#1C1F26',border:'1px solid #2E3140',borderRadius:10,padding:'10px 14px',fontSize:12}},
+    h('div',{style:{color:'#6B6977',marginBottom:4,fontWeight:600}},label),
+    payload.map((p,i)=>h('div',{key:i,style:{color:p.color,display:'flex',justifyContent:'space-between',gap:16}},
+      h('span',null,p.name),h('span',{style:{fontWeight:600,fontFamily:'var(--mono)'}},fK(p.value)+'원')
+    ))
+  );
+}
+
+// ── KPI Card ──
+function Kpi({label,val,trend,tdir,note,icon,clr}) {
+  return h('div',{className:'kpi'},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
+      h('div',null,
+        h('div',{className:'label'},label),
+        h('div',{className:'val'},val)
+      ),
+      h('div',{style:{fontSize:20,width:38,height:38,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:clr+'15'}},icon)
+    ),
+    h('div',{className:'sub'},
+      trend!==undefined && h('span',{className:'trend '+(tdir>=0?'up':'dn')},fP(tdir)),
+      note && h('span',{className:'note'},note)
+    )
+  );
+}
+
+// ── Dashboard Tab ──
+function Dashboard() {
+  const [period, setPeriod] = useState('7d');
+  const days = period==='7d'?7:period==='14d'?14:30;
+  const sliced = DATA.daily.slice(-days);
+  const chTotals = ['cafe24','coupang','naver'].map(ch=>({ch,name:CH[ch].name,color:CH[ch].color,rev:sliced.reduce((s,d)=>s+d[ch],0)}));
+  const total = chTotals.reduce((s,c)=>s+c.rev,0);
+
+  return h(Fragment, null,
+    // Period selector
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}},
+      h('div',null,
+        h('h1',{style:{fontSize:22,fontWeight:700,letterSpacing:'-.02em'}},'매출 현황'),
+        h('p',{style:{fontSize:13,color:'var(--t3)',marginTop:2}},'다채널 통합 판매 데이터')
+      ),
+      h('div',{style:{display:'flex',gap:3,background:'var(--bg2)',border:'1px solid var(--brd)',borderRadius:10,padding:3}},
+        [['7d','7일'],['14d','14일'],['30d','30일']].map(([k,l])=>
+          h('button',{key:k,onClick:()=>setPeriod(k),style:{padding:'6px 15px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',background:period===k?'var(--grn)':'transparent',color:period===k?'var(--bg)':'var(--t3)',transition:'all .2s'}},l)
+        )
+      )
+    ),
+
+    // KPIs
+    h('div',{className:'kpi-grid'},
+      h(Kpi,{label:'오늘 매출',val:fK(DATA.todayRev)+'원',trend:5.2,tdir:5.2,note:'전일 대비',icon:'💰',clr:'var(--grn)'}),
+      h(Kpi,{label:'오늘 주문',val:DATA.todayOrd+'건',trend:12.8,tdir:12.8,note:'전일 대비',icon:'📦',clr:'var(--blu)'}),
+      h(Kpi,{label:'평균 주문가',val:fK(DATA.avgOV)+'원',trend:-2.1,tdir:-2.1,note:'전주 대비',icon:'📊',clr:'var(--pur)'}),
+      h(Kpi,{label:'재고 경고',val:DATA.lowCnt+'건',note:'안전재고 이하',icon:'⚠️',clr:'var(--amb)'})
+    ),
+
+    // Revenue chart
+    h('div',{className:'sec-title'},
+      h('span',null,'채널별 매출 추이'),
+      h('div',{className:'legend'},
+        Object.entries(CH).map(([k,v])=>h('span',{key:k},h('span',{className:'dot',style:{background:v.color}}),v.name))
+      )
+    ),
+    h('div',{className:'card'},
+      h(ResponsiveContainer,{width:'100%',height:260},
+        h(AreaChart,{data:sliced},
+          h('defs',null, Object.entries(CH).map(([k,v])=>
+            h('linearGradient',{key:k,id:'g-'+k,x1:0,y1:0,x2:0,y2:1},
+              h('stop',{offset:'0%',stopColor:v.color,stopOpacity:.25}),
+              h('stop',{offset:'95%',stopColor:v.color,stopOpacity:0})
+            )
+          )),
+          h(CartesianGrid,{stroke:'#1C1F26',strokeDasharray:'3 3'}),
+          h(XAxis,{dataKey:'date',stroke:'#3D4155',tick:{fill:'#6B6977',fontSize:11}}),
+          h(YAxis,{stroke:'#3D4155',tick:{fill:'#6B6977',fontSize:11},tickFormatter:fK,width:52}),
+          h(Tooltip,{content:h(CTip)}),
+          Object.entries(CH).map(([k,v])=>h(Area,{key:k,type:'monotone',dataKey:k,name:v.name,stroke:v.color,strokeWidth:2,fill:'url(#g-'+k+')',dot:false}))
+        )
+      )
+    ),
+
+    // Mid: pie + hourly
+    h('div',{className:'grid2'},
+      h('div',{className:'card'},
+        h('div',{className:'card-title'},'채널별 매출 비중'),
+        h('div',{style:{display:'flex',alignItems:'center',gap:16}},
+          h(ResponsiveContainer,{width:'50%',height:170},
+            h(PieChart,null,
+              h(Pie,{data:chTotals.map(c=>({name:c.name,value:c.rev})),dataKey:'value',cx:'50%',cy:'50%',innerRadius:42,outerRadius:72,strokeWidth:0},
+                chTotals.map((c,i)=>h(Cell,{key:i,fill:c.color}))
+              )
+            )
+          ),
+          h('div',{style:{flex:1}},
+            chTotals.map(c=>h('div',{key:c.ch,style:{marginBottom:10}},
+              h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}},
+                h('span',{style:{color:'var(--t2)'}},h('span',{className:'dot',style:{background:c.color}}),c.name),
+                h('span',{style:{color:'var(--t2)',fontFamily:'var(--mono)',fontSize:12}},(c.rev/total*100).toFixed(1)+'%')
+              ),
+              h('div',{className:'bar-bg'},h('div',{className:'bar-fill',style:{width:(c.rev/total*100)+'%',background:c.color}}))
+            )),
+            h('div',{style:{marginTop:14,fontSize:13,color:'var(--t3)'}},'총 ',h('span',{style:{color:'var(--t1)',fontWeight:600}},fK(total)+'원'))
+          )
+        )
+      ),
+      h('div',{className:'card'},
+        h('div',{className:'card-title'},'시간대별 주문'),
+        h(ResponsiveContainer,{width:'100%',height:170},
+          h(BarChart,{data:DATA.hr},
+            h(CartesianGrid,{stroke:'#1C1F26',strokeDasharray:'3 3'}),
+            h(XAxis,{dataKey:'h',stroke:'#3D4155',tick:{fill:'#6B6977',fontSize:10},interval:3}),
+            h(YAxis,{stroke:'#3D4155',tick:{fill:'#6B6977',fontSize:10},width:26}),
+            h(Tooltip,{contentStyle:{background:'#1C1F26',border:'1px solid #2E3140',borderRadius:10,fontSize:12}}),
+            h(Bar,{dataKey:'v',name:'주문',fill:'#5B9DF0',radius:[3,3,0,0]})
+          )
+        )
+      )
+    ),
+
+    // Status + Top Products
+    h('div',{className:'grid2'},
+      h('div',{className:'card'},
+        h('div',{className:'card-title'},'주문 처리 현황'),
+        DATA.statuses.map((s,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,marginBottom:9}},
+          h('span',{style:{width:9,height:9,borderRadius:'50%',background:s.color,flexShrink:0}}),
+          h('span',{style:{fontSize:13,color:'var(--t2)',flex:1}},s.name),
+          h('span',{style:{fontSize:15,fontWeight:700,fontFamily:'var(--mono)',minWidth:36,textAlign:'right'}},s.value),
+          h('div',{className:'bar-bg',style:{width:80}},h('div',{className:'bar-fill',style:{width:(s.value/320*100)+'%',background:s.color}}))
+        ))
+      ),
+      h('div',{className:'card'},
+        h('div',{className:'card-title'},'상위 판매 상품'),
+        h('div',{style:{maxHeight:230,overflow:'auto'}},
+          DATA.top.slice(0,8).map(p=>h('div',{key:p.rank,style:{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--bg3)'}},
+            h('span',{style:{width:22,height:22,borderRadius:6,fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',background:p.rank<=3?'#4AE68A15':'var(--bg3)',color:p.rank<=3?'var(--grn)':'var(--t3)'}},p.rank),
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},p.name),
+              h('div',{style:{fontSize:11,color:'var(--t3)'}},p.qty+'개 판매')
+            ),
+            h('span',{style:{fontSize:13,fontWeight:600,fontFamily:'var(--mono)'}},fK(p.rev)+'원')
+          ))
+        )
+      )
+    )
+  );
+}
+
+// ── Inventory Tab ──
+function Inventory() {
+  const [filter, setFilter] = useState('all');
+  const items = DATA.inv.filter(i=> filter==='all' || i.st===filter)
+    .sort((a,b)=>{const o={out:0,low:1,ok:2};return o[a.st]-o[b.st]});
+
+  return h(Fragment,null,
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}},
+      h('h1',{style:{fontSize:22,fontWeight:700}},'재고 현황'),
+      h('div',{style:{display:'flex',gap:3,background:'var(--bg2)',border:'1px solid var(--brd)',borderRadius:10,padding:3}},
+        [['all','전체'],['low','부족'],['out','품절']].map(([k,l])=>
+          h('button',{key:k,onClick:()=>setFilter(k),style:{padding:'6px 15px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',background:filter===k?(k==='out'?'var(--red)':k==='low'?'var(--amb)':'var(--grn)'):'transparent',color:filter===k?'var(--bg)':'var(--t3)',transition:'all .2s'}},l)
+        )
+      )
+    ),
+    // Summary cards
+    h('div',{className:'kpi-grid',style:{gridTemplateColumns:'repeat(3,1fr)'}},
+      h(Kpi,{label:'총 상품',val:DATA.inv.length+'종',icon:'📦',clr:'var(--blu)'}),
+      h(Kpi,{label:'안전재고 이하',val:DATA.inv.filter(i=>i.st==='low').length+'종',icon:'⚠️',clr:'var(--amb)'}),
+      h(Kpi,{label:'품절',val:DATA.inv.filter(i=>i.st==='out').length+'종',icon:'🔴',clr:'var(--red)'})
+    ),
+    h('div',{className:'card',style:{marginTop:14}},
+      h('table',null,
+        h('thead',null,h('tr',null,
+          ['SKU','상품명','현재 재고','안전 재고','가용률','상태'].map(t=>h('th',{key:t},t))
+        )),
+        h('tbody',null,items.map((it,i)=>{
+          const pct = it.safety>0 ? Math.min(it.total/it.safety*100,100) : 100;
+          return h('tr',{key:i},
+            h('td',{style:{fontFamily:'var(--mono)',fontSize:12,color:'var(--t2)'}},it.sku),
+            h('td',{style:{fontWeight:500}},it.name),
+            h('td',{style:{fontFamily:'var(--mono)',fontWeight:600,color:it.st==='ok'?'var(--t1)':it.st==='low'?'var(--amb)':'var(--red)'}},it.total),
+            h('td',{style:{fontFamily:'var(--mono)',color:'var(--t3)'}},it.safety),
+            h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+              h('div',{className:'bar-bg',style:{width:60}},h('div',{className:'bar-fill',style:{width:pct+'%',background:it.st==='ok'?'var(--grn)':it.st==='low'?'var(--amb)':'var(--red)'}})),
+              h('span',{style:{fontSize:11,color:'var(--t3)',fontFamily:'var(--mono)'}},Math.round(pct)+'%')
+            )),
+            h('td',null,h('span',{className:'badge '+it.st},it.st==='ok'?'정상':it.st==='low'?'부족':'품절'))
+          );
+        }))
+      )
+    )
+  );
+}
+
+// ── App Router ──
+function App() {
+  if (currentTab === 'inventory') return h(Inventory);
+  return h(Dashboard);
+}
+
+function renderApp() {
+  ReactDOM.render(h(App), document.getElementById('app'));
+}
+renderApp();
+
+// Sync status
+const syncEl = document.getElementById('sync-status');
+function updateSync() {
+  const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  syncEl.textContent = '마지막 동기화: ' + t;
+}
+updateSync();
+setInterval(updateSync, 60000);
+</script>
+</body>
+</html>

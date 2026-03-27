@@ -1,0 +1,17 @@
+{
+  "name": "cafe24-sales-manager",
+  "version": "1.0.0",
+  "description": "카페24 쇼핑몰 판매관리 시스템",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
