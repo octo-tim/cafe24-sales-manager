@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: cafe24-sales-manager
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /auth/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: CAFE24_MALL_ID
+        sync: false
+      - key: CAFE24_CLIENT_ID
+        sync: false
+      - key: CAFE24_CLIENT_SECRET
+        sync: false
+      - key: CAFE24_REDIRECT_URI
+        sync: false
