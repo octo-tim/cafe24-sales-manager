@@ -48,7 +48,15 @@ class Cafe24Client {
 
   async getAllOrders(startDate, endDate) {
     const all=[]; let offset=0, hasMore=true;
-    while(hasMore) { const r=await this.getOrders({ start_date:startDate, end_date:endDate, limit:100, offset, embed:'items' }); const o=r.orders||[]; all.push(...o); offset+=100; hasMore=o.length===100; }
+    while(hasMore) {
+      try {
+        const r=await this.getOrders({ start_date:startDate, end_date:endDate, limit:100, offset, embed:'items' });
+        const o=(r&&r.orders)?r.orders:((r&&r.data&&r.data.orders)?r.data.orders:[]);
+        if(!o||!o.length){hasMore=false;break;}
+        all.push(...o); offset+=100; hasMore=o.length===100;
+        console.log('[Cafe24] orders fetched: '+all.length);
+      } catch(e) { console.error('[Cafe24] getAllOrders error at offset '+offset+': '+e.message); hasMore=false; }
+    }
     return all;
   }
 
