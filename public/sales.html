@@ -96,7 +96,7 @@ tr:hover td{background:#1C1F2680}
 <option value="E">교환</option>
 </select>
 <button class="btn btn-g" onclick="fetchOrders()" id="searchBtn">🔍 조회</button>
-<button class="btn btn-s" onclick="exportCSV()">📥 CSV 다운로드</button>
+<button class="btn btn-s" onclick="exportCSV()">📥 CSV 다운로드</button><button class="btn btn-s" onclick="syncOrders()" id="syncBtn">🔄 주문 동기화</button><span style="font-size:10px;color:#6B6977" id="syncInfo">자동 동기화: 30분 간격</span>
 </div>
 
 <!-- 탭: 주문 / 취소·환불 -->
