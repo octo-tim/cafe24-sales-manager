@@ -110,12 +110,12 @@ function doFetch(){
   var s=document.getElementById('sd').value,e=document.getElementById('ed').value;
   if(!s||!e){alert('기간을 선택하세요');return}
   btn.innerHTML='<span class="spinner"></span>조회중';btn.disabled=true;
-  fetch('/api/orders?start_date='+s+'&end_date='+e+'&limit=100&embed=items')
+  fetch('/api/orders/all?start_date='+s+'&end_date='+e')
   .then(function(r){return r.json()})
   .then(function(d){
     if(d.success){
       var orders=[];
-      if(d.data&&d.data.orders)orders=d.data.orders;
+      if(d.data&&d.data)orders=d.data;
       else if(Array.isArray(d.data))orders=d.data;
       allData=orders;
       cp=0;applyFilter();
