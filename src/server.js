@@ -25,6 +25,7 @@ const coupang = config.coupang.accessKey ? new CoupangClient(config.coupang) : n
 const naver = config.naver.clientId ? new NaverCommerceClient(config.naver) : null;
 const multiChannel = new MultiChannelService({ cafe24Client: cafe24, coupangClient: coupang, naverClient: naver });
 const orderDB = new OrderDB();
+app.use(async (req, res, next) => { try { await orderDB.ensureReady(); next(); } catch(e) { next(); } });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
