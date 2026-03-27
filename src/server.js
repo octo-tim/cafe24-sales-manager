@@ -28,7 +28,7 @@ const multiChannel = new MultiChannelService({ cafe24Client: cafe24, coupangClie
 // DB는 비동기 초기화 — 서버 시작을 차단하지 않음
 const orderDB = new OrderDB();
 let dbReady = false;
-orderDB.ensureReady().then(() => { dbReady = true; console.log('[DB] 준비 완료'); }).catch(e => console.error('[DB] 초기화 실패:', e.message));
+orderDB.ensureReady().then(() => { dbReady = true; cafe24.setDB(orderDB); cafe24.autoRecover().then(ok => { if(ok) console.log("[Boot] DB+토큰 복구 성공"); }).catch(e=>console.error("[Boot]",e.message)); console.log('[DB] 준비 완료'); }).catch(e => console.error('[DB] 초기화 실패:', e.message));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,9 +48,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 // 카페24 토큰 복구 (비동기)
-cafe24.autoRecover().then(ok => {
-  if (ok) console.log('[Boot] 카페24 토큰 복구 성공');
-}).catch(e => console.error('[Boot]', e.message));
 
 
 // ═══════════════════════════════════════════════
