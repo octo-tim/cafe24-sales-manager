@@ -160,10 +160,10 @@ async function fetchOrders(){
   var end=document.getElementById('endDate').value;
   if(!start||!end){alert('기간을 선택하세요');btn.innerHTML='🔍 조회';btn.disabled=false;return}
   try{
-    var resp=await fetch('/api/orders/all?start_date='+start+'&end_date='+end);
+    var resp=await fetch('/api/orders?start_date='+start+'&end_date='+end+'&limit=100);
     var data=await resp.json();
     if(data.success){
-      allOrders=data.data||[];
+      allOrders=(data.data&&data.data.orders)?data.data.orders:(data.data||[]);
       currentPage=0;
       applyFilter();
       btn.innerHTML='🔍 조회 ('+allOrders.length+'건)';
