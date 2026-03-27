@@ -183,7 +183,15 @@ app.get('/auth/callback', async (req, res) => {
   const { code, error } = req.query;
   if (error) return res.status(400).json({ success: false, error: `인증 실패: ${error}` });
   if (!code) return res.status(400).json({ success: false, error: '인증 코드 없음' });
-  try { await cafe24.getAccessToken(code); res.redirect('/?auth=success'); }
+  try {
+      const tokens = await cafe24.getAccessToken(code);
+      console.log('[Auth] ===== 인증 성공 =====');
+      console.log('[Auth] Railway Variables에 저장하세요:');
+      console.log('  CAFE24_REFRESH_TOKEN=' + tokens.refresh_token);
+      if (tokens.refresh_token_expires_at) console.log('  CAFE24_REFRESH_EXPIRES_AT=' + tokens.refresh_token_expires_at);
+      console.log('[Auth] ======================');
+      res.redirect('/?auth=success');
+    }
   catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 app.get('/auth/status', (req, res) => {
