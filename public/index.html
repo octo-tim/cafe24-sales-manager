@@ -91,7 +91,7 @@ canvas{max-height:300px}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">멀티채널 통합 현황</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">카페24 · 쿠팡 · 네이버 스마트스토어</p></div>
     <div style="display:flex;align-items:center;gap:10px">
-      <button class="collect-btn" id="overviewCollectBtn" onclick="runCollect(this)"><span class="sp"></span><span class="ic-sync">↻</span> 주문 수집</button>
+      <button class="collect-btn" id="overviewCollectBtn" onclick="runCollect(this,1)"><span class="sp"></span><span class="ic-sync">↻</span> 주문 수집</button>
       <div class="period"><select id="periodSelect" onchange="changePeriod()"><option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 90일</option></select></div>
     </div>
   </div>
@@ -109,8 +109,27 @@ canvas{max-height:300px}
 <!-- ═══ TAB: 주문 수집 ═══ -->
 <div id="tab-collector" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div><h2 style="font-size:20px;font-weight:700">주문 수집</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">30분마다 자동 수집 · 수동 즉시 수집 가능</p></div>
-    <button class="collect-btn" id="mainCollectBtn" onclick="runCollect(this)" style="padding:10px 24px;font-size:13px"><span class="sp"></span><span class="ic-sync">↻</span> 지금 주문 수집</button>
+    <div><h2 style="font-size:20px;font-weight:700">주문 수집</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">30분마다 자동 수집 · 수동 최대 30일 수집</p></div>
+  </div>
+
+  <!-- 수집 컨트롤 패널 -->
+  <div class="cd" style="border-left:3px solid var(--grn)">
+    <div class="ct">수집 실행</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;align-items:center"><div style="font-size:11px;color:var(--t3)">빠른 선택</div></div>
+      <button class="collect-btn" onclick="runCollect(this,1)" style="font-size:12px"><span class="sp"></span><span class="ic-sync">↻</span> 오늘</button>
+      <button class="collect-btn" onclick="runCollect(this,3)"><span class="sp"></span><span class="ic-sync">↻</span> 3일</button>
+      <button class="collect-btn" onclick="runCollect(this,7)"><span class="sp"></span><span class="ic-sync">↻</span> 7일</button>
+      <button class="collect-btn" onclick="runCollect(this,14)"><span class="sp"></span><span class="ic-sync">↻</span> 14일</button>
+      <button class="collect-btn" onclick="runCollect(this,30)" style="border-color:var(--amb)"><span class="sp"></span><span class="ic-sync">↻</span> 30일</button>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:8px;padding-left:12px;border-left:1px solid var(--bd)">
+        <input type="date" id="collectStart" style="padding:6px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+        <span style="color:var(--t3);font-size:11px">~</span>
+        <input type="date" id="collectEnd" style="padding:6px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+        <button class="collect-btn" onclick="runCollectRange(this)" style="background:var(--pur);color:#fff;border-color:var(--pur)"><span class="sp"></span><span class="ic-sync">↻</span> 기간 수집</button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin-top:8px">자동 수집: 30분마다 최근 1일 · 수동 수집: 최대 30일 이전까지</div>
   </div>
 
   <!-- 수집기 상태 -->
@@ -119,6 +138,7 @@ canvas{max-height:300px}
   <!-- 마지막 수집 결과 -->
   <div class="cd">
     <div class="ct">마지막 수집 결과<span id="lastCollectTime" style="font-size:10px;color:var(--t3);font-weight:400"></span></div>
+    <div id="lastCollectPeriod" style="font-size:11px;color:var(--t2);margin-bottom:10px"></div>
     <div class="g3" id="lastCollectChannels"></div>
   </div>
 
@@ -177,11 +197,12 @@ async function runCollect(btn) {
   } catch(e) {
     // 서버 미연결 시 데모 결과
     var demo = {
-      trigger:'manual', timestamp: new Date().toISOString(), duration: 1240, totalCount: 47,
+      trigger:'manual', timestamp: new Date().toISOString(), duration: 800+days*40, totalCount: Math.round(15*days+Math.random()*20),
+      period:{start:daysAgo(days),end:todayStr(),days:days},
       channels: [
-        {channel:'카페24', status:'success', count:23, latency:450},
-        {channel:'쿠팡', status:'success', count:18, latency:380},
-        {channel:'네이버', status:'success', count:6, latency:290}
+        {channel:'카페24', status:'success', count:Math.round(7*days+Math.random()*10), latency:300+days*20},
+        {channel:'쿠팡', status:'success', count:Math.round(5*days+Math.random()*8), latency:250+days*15},
+        {channel:'네이버', status:'success', count:Math.round(3*days+Math.random()*5), latency:200+days*12}
       ]
     };
     showCollectResult(demo);
@@ -190,6 +211,27 @@ async function runCollect(btn) {
 
   btns.forEach(function(b){b.classList.remove('running')});
 }
+
+async function runCollectRange(btn) {
+  var sd = document.getElementById('collectStart').value, ed = document.getElementById('collectEnd').value;
+  if (!sd || !ed) { alert('시작일과 종료일을 선택하세요.'); return; }
+  var diff = Math.ceil((new Date(ed) - new Date(sd)) / 86400000);
+  if (diff < 0) { alert('시작일이 종료일보다 이후입니다.'); return; }
+  if (diff > 30) { alert('최대 30일까지만 수집 가능합니다. (선택: ' + diff + '일)'); return; }
+  var btns = document.querySelectorAll('.collect-btn');
+  btns.forEach(function(b){b.classList.add('running')});
+  try {
+    var r = await fetch(API_BASE + '/api/collector/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start_date:sd,end_date:ed})});
+    var j = await r.json();
+    if (j.success && j.data) { showCollectResult(j.data); updateCollectMini(j.data); } else { alert(j.error || '수집 실패'); }
+  } catch(e) {
+    var demo = {trigger:'manual',timestamp:new Date().toISOString(),duration:900+diff*40,totalCount:Math.round(15*(diff||1)+Math.random()*20),period:{start:sd,end:ed,days:diff||1},channels:[{channel:'카페24',status:'success',count:Math.round(7*(diff||1)+Math.random()*10),latency:300},{channel:'쿠팡',status:'success',count:Math.round(5*(diff||1)+Math.random()*8),latency:250},{channel:'네이버',status:'success',count:Math.round(3*(diff||1)+Math.random()*5),latency:200}]};
+    showCollectResult(demo); updateCollectMini(demo);
+  }
+  btns.forEach(function(b){b.classList.remove('running')});
+}
+function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return d.toISOString().substring(0,10)}
+function todayStr(){return new Date().toISOString().substring(0,10)}
 
 function showCollectResult(data) {
   // 채널별 결과 카드
@@ -210,6 +252,11 @@ function showCollectResult(data) {
   // 시간 표시
   var tEl = document.getElementById('lastCollectTime');
   if (tEl) tEl.textContent = ' · ' + new Date(data.timestamp).toLocaleTimeString('ko-KR') + ' · ' + data.duration + 'ms';
+
+  // 기간 표시
+  var pEl = document.getElementById('lastCollectPeriod');
+  if (pEl && data.period) pEl.textContent = '수집 기간: ' + data.period.start + ' ~ ' + data.period.end + ' (' + data.period.days + '일)';
+  else if (pEl) pEl.textContent = '';
 
   // 이력 새로고침
   loadCollectorHistory();
@@ -298,9 +345,11 @@ function renderHistory(list) {
       var icon = c.status === 'success' ? '' : ' style="opacity:.4"';
       return '<span'+icon+'><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:'+col+';vertical-align:middle;margin-right:2px"></span>'+c.count+'</span>';
     }).join('<span style="color:var(--bd);margin:0 3px">|</span>');
+    var periodStr = r.period ? r.period.days + '일' : '';
     h += '<div class="hist-row">';
     h += '<span class="ts">'+timeStr+'</span>';
     h += '<span class="trg '+trgClass+'">'+trgLabel+'</span>';
+    if (periodStr) h += '<span style="font-size:10px;color:var(--amb);font-weight:600;min-width:28px">'+periodStr+'</span>';
     h += '<span style="flex:1">'+chParts+'</span>';
     h += '<span style="font-weight:600;min-width:40px;text-align:right">'+r.totalCount+'건</span>';
     h += '<span style="color:var(--t3);min-width:50px;text-align:right">'+r.duration+'ms</span>';
@@ -330,5 +379,6 @@ async function tryLoadFromAPI(){try{var r=await fetch(API_BASE+'/api/multichanne
 
 updateChannelStatus();
 tryLoadFromAPI();
+(function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=todayStr();if(s)s.value=daysAgo(30)})();
 </script>
 </body></html>

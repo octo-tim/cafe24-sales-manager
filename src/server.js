@@ -30,19 +30,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+const MAX_COLLECT_DAYS = 30;
 
 // ═══════════════════════════════════════════════
 //  주문 수집 엔진 (Order Collector)
 // ═══════════════════════════════════════════════
 
 const collector = {
-  // 수집 이력 (최근 50건 메모리 보관)
   history: [],
   maxHistory: 50,
   isRunning: false,
   lastRun: null,
 
-  /** 단일 채널 주문 수집 */
   async collectChannel(channelName, fetchFn) {
     const start = Date.now();
     try {
@@ -54,8 +53,14 @@ const collector = {
     }
   },
 
-  /** 전체 채널 주문 수집 (30분 스케줄 또는 수동) */
-  async collectAll(trigger = 'auto') {
+  /**
+   * 전체 채널 주문 수집
+   * @param {string} trigger - 'auto' | 'manual'
+   * @param {number} days - 수집 기간 (일). 1~30일. 기본 1일.
+   * @param {string} startDate - 직접 지정 시작일 (YYYY-MM-DD). days보다 우선.
+   * @param {string} endDate - 직접 지정 종료일 (YYYY-MM-DD).
+   */
+  async collectAll(trigger = 'auto', { days = 1, startDate, endDate } = {}) {
     if (this.isRunning) {
       return { success: false, error: '수집이 이미 진행 중입니다.', isRunning: true };
     }
@@ -63,38 +68,69 @@ const collector = {
     this.isRunning = true;
     const startTime = Date.now();
     const now = new Date();
-    const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
-    const startDate = thirtyMinAgo.toISOString().substring(0, 10);
-    const endDate = now.toISOString().substring(0, 10);
 
-    console.log(`[Collector] ${trigger === 'manual' ? '수동' : '자동'} 주문 수집 시작 (${startDate} ~ ${endDate})`);
+    // 기간 계산: 직접 지정 > days 파라미터
+    let collectStart, collectEnd;
+    if (startDate && endDate) {
+      collectStart = startDate;
+      collectEnd = endDate;
+      // 최대 30일 제한 검증
+      const diffMs = new Date(endDate) - new Date(startDate);
+      const diffDays = Math.ceil(diffMs / 86400000);
+      if (diffDays > MAX_COLLECT_DAYS) {
+        this.isRunning = false;
+        return { success: false, error: `최대 ${MAX_COLLECT_DAYS}일까지만 수집 가능합니다. (요청: ${diffDays}일)` };
+      }
+      if (diffDays < 0) {
+        this.isRunning = false;
+        return { success: false, error: '시작일이 종료일보다 이후입니다.' };
+      }
+    } else {
+      const clampedDays = Math.max(1, Math.min(days, MAX_COLLECT_DAYS));
+      const fromDate = new Date(now.getTime() - clampedDays * 86400000);
+      collectStart = fromDate.toISOString().substring(0, 10);
+      collectEnd = now.toISOString().substring(0, 10);
+    }
+
+    const periodDays = Math.ceil((new Date(collectEnd) - new Date(collectStart)) / 86400000) || 1;
+
+    console.log(`[Collector] ${trigger === 'manual' ? '수동' : '자동'} 주문 수집 (${collectStart} ~ ${collectEnd}, ${periodDays}일)`);
 
     const results = await Promise.allSettled([
-      // 카페24
+      // 카페24: getAllOrders로 전체 페이지네이션 처리
       this.collectChannel('카페24', async () => {
         if (!cafe24.tokens?.access_token) throw new Error('미인증');
-        return cafe24.getOrders({
-          start_date: startDate, end_date: endDate,
-          limit: 100, embed: 'items'
-        });
+        if (periodDays <= 1) {
+          return cafe24.getOrders({ start_date: collectStart, end_date: collectEnd, limit: 100, embed: 'items' });
+        }
+        // 기간이 길면 getAllOrders 사용 (병렬 페이징)
+        const orders = await cafe24.getAllOrders(collectStart, collectEnd);
+        return { orders };
       }),
       // 쿠팡
       this.collectChannel('쿠팡', async () => {
         if (!coupang) throw new Error('미설정');
-        return coupang.getOrders({
-          createdAtFrom: thirtyMinAgo.toISOString(),
-          createdAtTo: now.toISOString(),
-          maxPerPage: 50
-        });
+        if (periodDays <= 1) {
+          return coupang.getOrders({
+            createdAtFrom: new Date(collectStart).toISOString(),
+            createdAtTo: new Date(collectEnd + 'T23:59:59').toISOString(),
+            maxPerPage: 50
+          });
+        }
+        const orders = await coupang.getAllOrders(
+          new Date(collectStart).toISOString(),
+          new Date(collectEnd + 'T23:59:59').toISOString()
+        );
+        return { data: orders };
       }),
       // 네이버
       this.collectChannel('네이버', async () => {
         if (!naver) throw new Error('미설정');
-        return naver.getOrders({
-          searchType: 'PAYED',
-          startDate: startDate,
-          endDate: endDate
-        });
+        if (periodDays <= 1) {
+          return naver.getOrders({ searchType: 'PAYED', startDate: collectStart, endDate: collectEnd });
+        }
+        const orders = await naver.getAllOrders(collectStart, collectEnd);
+        return { data: orders };
       }),
     ]);
 
@@ -107,26 +143,26 @@ const collector = {
       trigger,
       timestamp: now.toISOString(),
       duration: totalLatency,
+      period: { start: collectStart, end: collectEnd, days: periodDays },
       totalCount,
       channels,
     };
 
-    // 이력 저장
     this.history.unshift(record);
     if (this.history.length > this.maxHistory) this.history.pop();
     this.lastRun = record;
     this.isRunning = false;
 
-    console.log(`[Collector] 완료: ${totalCount}건 (${totalLatency}ms) — ${channels.map(c => `${c.channel}:${c.count}`).join(', ')}`);
+    console.log(`[Collector] 완료: ${totalCount}건 (${totalLatency}ms) [${collectStart}~${collectEnd}] — ${channels.map(c => `${c.channel}:${c.count}`).join(', ')}`);
     return { success: true, data: record };
   },
 
-  /** 상태 조회 */
   getStatus() {
     return {
       isRunning: this.isRunning,
       lastRun: this.lastRun,
       historyCount: this.history.length,
+      maxDays: MAX_COLLECT_DAYS,
       schedule: '*/30 * * * *',
       scheduleDesc: '30분마다',
       channels: {
@@ -161,7 +197,7 @@ app.get('/auth/status', (req, res) => {
 
 
 // ═══════════════════════════════════════════════
-//  B. 카페24 API
+//  B~E. 기존 API 라우트 (카페24/쿠팡/네이버/멀티채널)
 // ═══════════════════════════════════════════════
 app.get('/api/orders', async (req, res) => { try { res.json({ success: true, data: await cafe24.getOrders(req.query) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/orders/all', async (req, res) => { try { const { start_date, end_date } = req.query; if (!start_date || !end_date) return res.status(400).json({ success: false, error: 'start_date, end_date 필수' }); const orders = await cafe24.getAllOrders(start_date, end_date); res.json({ success: true, count: orders.length, data: orders }); } catch (err) { handleApiError(res, err); } });
@@ -174,18 +210,12 @@ app.put('/api/inventory/:productNo/:variantCode', async (req, res) => { try { re
 app.get('/api/inventory-report', async (req, res) => { try { const r = await cafe24.getFullInventoryReport(); res.json({ success: true, count: r.length, data: r }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/analytics/sales', async (req, res) => { try { const { start_date, end_date } = req.query; if (!start_date || !end_date) return res.status(400).json({ success: false, error: 'start_date, end_date 필수' }); res.json({ success: true, data: await cafe24.getSalesAnalytics(start_date, end_date) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/dashboard', async (req, res) => { try { res.json({ success: true, data: await cafe24.getDashboard() }); } catch (err) { handleApiError(res, err); } });
-
-// C. 쿠팡 API
 app.get('/api/coupang/orders', async (req, res) => { if (!coupang) return res.status(400).json({ success: false, error: '쿠팡 미설정' }); try { res.json({ success: true, data: await coupang.getOrders(req.query) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/coupang/products', async (req, res) => { if (!coupang) return res.status(400).json({ success: false, error: '쿠팡 미설정' }); try { res.json({ success: true, data: await coupang.getProducts(req.query) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/coupang/analytics/sales', async (req, res) => { if (!coupang) return res.status(400).json({ success: false, error: '쿠팡 미설정' }); try { const { start_date, end_date } = req.query; if (!start_date || !end_date) return res.status(400).json({ success: false, error: 'start_date, end_date 필수' }); res.json({ success: true, data: await coupang.getSalesAnalytics(start_date, end_date) }); } catch (err) { handleApiError(res, err); } });
-
-// D. 네이버 API
 app.get('/api/naver/orders', async (req, res) => { if (!naver) return res.status(400).json({ success: false, error: '네이버 미설정' }); try { res.json({ success: true, data: await naver.getOrders(req.query) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/naver/products', async (req, res) => { if (!naver) return res.status(400).json({ success: false, error: '네이버 미설정' }); try { res.json({ success: true, data: await naver.getProducts(req.query) }); } catch (err) { handleApiError(res, err); } });
 app.get('/api/naver/analytics/sales', async (req, res) => { if (!naver) return res.status(400).json({ success: false, error: '네이버 미설정' }); try { const { start_date, end_date } = req.query; if (!start_date || !end_date) return res.status(400).json({ success: false, error: 'start_date, end_date 필수' }); res.json({ success: true, data: await naver.getSalesAnalytics(start_date, end_date) }); } catch (err) { handleApiError(res, err); } });
-
-// E. 멀티채널 통합
 app.use('/api/multichannel', multiChannelRouter(multiChannel));
 
 
@@ -193,28 +223,36 @@ app.use('/api/multichannel', multiChannelRouter(multiChannel));
 //  F. 주문 수집 API (/api/collector/*)
 // ═══════════════════════════════════════════════
 
-/** POST /api/collector/run — 수동 주문수집 실행 */
+/**
+ * POST /api/collector/run — 수동 주문수집
+ * Body: { days: 7 }               → 최근 7일 수집
+ * Body: { days: 30 }              → 최근 30일 수집 (최대)
+ * Body: { start_date, end_date }  → 직접 기간 지정 (최대 30일)
+ * Body: {} (없음)                 → 기본 최근 1일
+ */
 app.post('/api/collector/run', async (req, res) => {
   try {
-    const result = await collector.collectAll('manual');
+    const { days, start_date, end_date } = req.body || {};
+    const result = await collector.collectAll('manual', {
+      days: days || 1,
+      startDate: start_date,
+      endDate: end_date,
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-/** GET /api/collector/status — 수집기 현재 상태 */
 app.get('/api/collector/status', (req, res) => {
   res.json({ success: true, data: collector.getStatus() });
 });
 
-/** GET /api/collector/history — 수집 이력 조회 */
 app.get('/api/collector/history', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   res.json({ success: true, data: collector.history.slice(0, limit) });
 });
 
-/** GET /api/collector/last — 마지막 수집 결과 */
 app.get('/api/collector/last', (req, res) => {
   res.json({ success: true, data: collector.lastRun });
 });
@@ -233,12 +271,13 @@ app.get('/api/config/status', (req, res) => {
 
 
 // ═══════════════════════════════════════════════
-//  H. 스케줄러 — 30분마다 채널별 주문 수집
+//  H. 스케줄러
 // ═══════════════════════════════════════════════
 
+// 30분마다 — 최근 1일치 주문 수집
 cron.schedule('*/30 * * * *', async () => {
-  console.log('[Scheduler] 30분 주기 주문 수집 시작...');
-  await collector.collectAll('auto');
+  console.log('[Scheduler] 30분 주기 주문 수집...');
+  await collector.collectAll('auto', { days: 1 });
 });
 
 // 매 시간 — 일간 매출 스냅샷
@@ -252,8 +291,6 @@ cron.schedule('0 * * * *', async () => {
   } catch (e) { console.error('[Scheduler]', e.message); }
 });
 
-
-// ─────────────────────────────────────────────
 function handleApiError(res, err) { console.error('[API]', err.message); res.status(err.statusCode || 500).json({ success: false, error: err.message }); }
 
 app.get('/api/debug/test', async (req, res) => {
@@ -264,7 +301,7 @@ app.get('/api/debug/test', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  카페24 판매관리 v2.1 — http://localhost:${PORT}`);
   console.log(`  카페24: ${cafe24.tokens?.access_token ? '인증됨' : '미인증'} | 쿠팡: ${coupang ? '설정됨' : '미설정'} | 네이버: ${naver ? '설정됨' : '미설정'}`);
-  console.log(`  주문 수집: 30분 주기 자동 + 수동 가능 (POST /api/collector/run)\n`);
+  console.log(`  주문 수집: 30분 자동(1일) + 수동 최대 ${MAX_COLLECT_DAYS}일\n`);
 });
 
 module.exports = app;
