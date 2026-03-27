@@ -22,7 +22,7 @@ const config = {
   clientId: process.env.CAFE24_CLIENT_ID || 'your_client_id',
   clientSecret: process.env.CAFE24_CLIENT_SECRET || 'your_client_secret',
   redirectUri: process.env.CAFE24_REDIRECT_URI || 'http://localhost:3000/auth/callback',
-  apiVersion: process.env.CAFE24_API_VERSION || '2024-06-01',
+  apiVersion: process.env.CAFE24_API_VERSION || '2026-03-01',
   tokenStorePath: process.env.TOKEN_STORE_PATH || './tokens.json',
 };
 
