@@ -37,8 +37,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // 매칭 엔진 라우트
-const matcherRoutes = require("./matcher-routes");
-app.use("/api/matcher", matcherRoutes);
 app.set("cafe24", cafe24);
 
 
