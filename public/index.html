@@ -436,7 +436,7 @@ function loadSalesAnalysis(){
     var ccH = '';
     ['카페24','쿠팡','네이버'].forEach(function(name){
       var ct = chTotals[name]; var share = totalRev > 0 ? (ct.revenue/totalRev*100).toFixed(1) : '0'; var avgD = Math.round(ct.revenue / days);
-      ccH += '<div class="kp" style="border-left:3px solid '+ct.color+';cursor:pointer" onclick="setSalesChannel(''+name+'',null)">';
+      ccH += '<div class="kp" style="border-left:3px solid '+ct.color+';cursor:pointer" data-channel="'+name+'" onclick="setSalesChannel(this.dataset.channel,null)">';
       ccH += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:13px;font-weight:700">'+name+'</span><span style="font-size:10px;color:var(--t3)">'+share+'%</span></div>';
       ccH += '<div style="font-size:18px;font-weight:700;margin-bottom:4px">'+fK(ct.revenue)+'</div>';
       ccH += '<div style="display:flex;gap:16px;font-size:11px;color:var(--t2)"><span>주문 '+fN(ct.orders)+'</span><span>객단가 '+fK(ct.avgOrder)+'</span><span>일평균 '+fK(avgD)+'</span></div></div>';
