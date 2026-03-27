@@ -5,7 +5,7 @@ const path = require('path');
 
 class Cafe24Client {
   constructor(config = {}) {
-    this.config = { mallId:'', clientId:'', clientSecret:'', redirectUri:'', apiVersion:'2024-06-01', tokenStorePath:'./tokens.json', ...config };
+    this.config = { mallId:'', clientId:'', clientSecret:'', redirectUri:'', apiVersion:'2026-03-01', tokenStorePath:'./tokens.json', ...config };
     this.baseUrl = `${this.config.mallId}.cafe24api.com`;
     this.tokens = this._loadTokens();
     this._bucket = { remaining:10, limit:10 };
