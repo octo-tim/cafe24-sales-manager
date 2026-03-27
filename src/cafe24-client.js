@@ -175,7 +175,7 @@ class Cafe24Client {
     for (const o of orders) {
       const st = o.order_status || '';
       if (st.startsWith('C') || st.startsWith('R')) continue;
-      const amt = parseFloat(o.payment_amount || o.actual_payment_amount || o.total_amount_paid || o.total_price || 0);
+      const amt = parseFloat(o.payment_amount || o.payment_amount || o.actual_payment_amount || o.total_amount_paid || o.total_price || o.total_price || 0);
       totalRevenue += amt;
       const d = (o.order_date || '').substring(0, 10);
       if (d) dailySales[d] = (dailySales[d] || 0) + amt;
