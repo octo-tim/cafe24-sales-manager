@@ -338,49 +338,25 @@ app.get('/api/inventory-mgmt/stats', (req, res) => {
   catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-/** POST /api/inventory-mgmt/snapshot — 날짜별 기초재고 스냅샷 생성 */
-app.post('/api/inventory-mgmt/snapshot', (req, res) => {
+/** GET /api/inventory-mgmt/stock — 재고 현황 자동 계산 */
+app.get('/api/inventory-mgmt/stock', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
-    const date = req.body.date || new Date().toISOString().substring(0, 10);
-    const result = orderDB.createDailySnapshot(date);
+    const date = req.query.date || new Date().toISOString().substring(0, 10);
+    const opts = { search: req.query.search||'', supplier: req.query.supplier||'', category: req.query.category||'', shippedOnly: req.query.shipped_only==='true', limit: parseInt(req.query.limit)||200 };
+    const result = orderDB.getStockStatus(date, opts);
     res.json({ success: true, data: result });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
-
-/** GET /api/inventory-mgmt/snapshot/:date — 스냅샷 조회 */
-app.get('/api/inventory-mgmt/snapshot/:date', (req, res) => {
-  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+/** GET /api/inventory-mgmt/stock-filters — 필터 목록 */
+app.get('/api/inventory-mgmt/stock-filters', (req, res) => {
+  if (!dbReady) return res.json({ success: true, data: { suppliers: [], categories: [] } });
   try {
-    const opts = {
-      search: req.query.search,
-      shippedOnly: req.query.shipped_only === 'true',
-      supplier: req.query.supplier || '',
-      category: req.query.category || '',
-      limit: parseInt(req.query.limit) || 200,
-    };
-    const items = orderDB.getSnapshot(req.params.date, opts);
-    const summary = orderDB.getSnapshotSummary(req.params.date, opts);
-    res.json({ success: true, data: { summary, items } });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    const suppliers = orderDB.db.exec("SELECT DISTINCT supplier FROM inventory WHERE supplier != '' ORDER BY supplier")[0]?.values?.map(r=>r[0]) || [];
+    const categories = orderDB.db.exec("SELECT DISTINCT category FROM inventory WHERE category != '' ORDER BY category")[0]?.values?.map(r=>r[0]) || [];
+    res.json({ success: true, data: { suppliers, categories } });
+  } catch (err) { res.json({ success: true, data: { suppliers: [], categories: [] } }); }
 });
-
-/** GET /api/inventory-mgmt/snapshot-filters/:date — 공급처/카테고리 필터 목록 */
-app.get('/api/inventory-mgmt/snapshot-filters/:date', (req, res) => {
-  if (!dbReady) return res.json({ success: false, data: { suppliers: [], categories: [] } });
-  try { res.json({ success: true, data: orderDB.getSnapshotFilters(req.params.date) }); }
-  catch (err) { res.json({ success: true, data: { suppliers: [], categories: [] } }); }
-});
-
-/** GET /api/inventory-mgmt/snapshot-dates — 스냅샷 날짜 목록 */
-app.get('/api/inventory-mgmt/snapshot-dates', (req, res) => {
-  if (!dbReady) return res.json({ success: false, data: [] });
-  try { res.json({ success: true, data: orderDB.getSnapshotDates() }); }
-  catch (err) { res.json({ success: true, data: [] }); }
-});
-
-
-
 /** GET /api/inventory-mgmt/margin — 상품별 마진 분석 (product_no + 상품명 복합 매칭) */
 app.get('/api/inventory-mgmt/margin', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });

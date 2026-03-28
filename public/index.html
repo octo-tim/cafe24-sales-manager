@@ -191,24 +191,23 @@ canvas{max-height:300px}
     <div><h2 style="font-size:20px;font-weight:700">재고관리</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">엑셀 업로드 → 주문 대조 → 예상재고 산출</p></div>
     <div style="display:flex;align-items:center;gap:8px">
       <label class="collect-btn" style="cursor:pointer"><span class="ic-sync">📁</span> 재고 엑셀 업로드<input type="file" id="invFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInventory(this)"></label>
-      <button class="collect-btn" onclick="createSnapshot()"><span class="ic-sync">📊</span> 오늘 스냅샷 생성</button>
     </div>
   </div>
 
   <div class="g4" id="invKpi"></div>
 
-  <div class="cd" id="invSnapshotPanel">
-    <div class="ct">날짜별 재고 현황<div style="display:flex;gap:6px;align-items:center"><input type="date" id="snapDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none"><button class="collect-btn" onclick="loadSnapshot()" style="padding:5px 12px;font-size:11px">조회</button><label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="shippedOnly" onchange="loadSnapshot()"> 출고 있는 상품만</label></div></div>
-    <div id="snapSummary" style="margin-bottom:10px"></div>
+  <div class="cd" id="invStockPanel">
+    <div class="ct">재고 현황<div style="display:flex;gap:6px;align-items:center"><input type="date" id="stockDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none"><button class="collect-btn" onclick="loadStockStatus()" style="padding:5px 12px;font-size:11px">조회</button><label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="shippedOnly" onchange="loadStockStatus()"> 출고 있는 상품만</label></div></div>
+    <div id="stockSummary" style="margin-bottom:10px"></div>
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadSnapshot()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-      <select id="invSupplier" onchange="loadSnapshot()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:120px"><option value="">전체 공급처</option></select>
-      <select id="invCategory" onchange="loadSnapshot()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px"><option value="">전체 카테고리</option></select>
+      <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadStockStatus()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+      <select id="invSupplier" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:120px"><option value="">전체 공급처</option></select>
+      <select id="invCategory" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px"><option value="">전체 카테고리</option></select>
     </div>
     <div style="max-height:500px;overflow-y:auto">
       <table>
         <thead><tr><th>상품코드</th><th>상품명</th><th>옵션</th><th>공급처</th><th>카테고리</th><th style="text-align:right">기초재고</th><th style="text-align:right;color:var(--red)">출고(주문)</th><th style="text-align:right;color:var(--grn)">예상재고</th></tr></thead>
-        <tbody id="snapBody"></tbody>
+        <tbody id="stockBody"></tbody>
       </table>
     </div>
   </div>
@@ -644,15 +643,15 @@ async function loadInventory() {
   } catch(e) {
     document.getElementById('invKpi').innerHTML = kpiCard('상태','재고 미업로드','','','엑셀 파일을 업로드하세요') + kpiCard('','','','','') + kpiCard('','','','','') + kpiCard('','','','','');
   }
-  // 스냅샷 날짜 기본값
-  var sd = document.getElementById('snapDate');
+  // 재고현황 날짜 기본값
+  var sd = document.getElementById('stockDate');
   if (sd && !sd.value) sd.value = todayStr();
   // 재고 목록
   loadInventoryList();
   // 필터 목록 로드
-  loadSnapshotFilters();
-  // 스냅샷 로드
-  loadSnapshot();
+  loadStockFilters();
+  // 재고현황 로드
+  loadStockStatus();
 }
 
 async function uploadInventory(input) {
@@ -685,22 +684,12 @@ async function loadInventoryList() {
   } catch(e) {}
 }
 
-async function createSnapshot() {
-  var date = document.getElementById('snapDate')?.value || todayStr();
-  try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/snapshot', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date:date}) });
-    var j = await r.json();
-    if (j.success) {
-      alert('스냅샷 생성: ' + date + ' (' + j.data.created + '상품, 출고 ' + j.data.totalShipped + '건)');
-      loadSnapshot();
-    } else { alert('실패: ' + (j.error||'')); }
-  } catch(e) { alert('오류: ' + e.message); }
-}
 
-async function loadSnapshotFilters() {
-  var date = document.getElementById('snapDate')?.value || todayStr();
+
+async function loadStockFilters() {
+  var date = document.getElementById('stockDate')?.value || todayStr();
   try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/snapshot-filters/' + date);
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters' + date);
     var j = await r.json();
     if (j.success && j.data) {
       var supEl = document.getElementById('invSupplier');
@@ -718,32 +707,25 @@ async function loadSnapshotFilters() {
     }
   } catch(e) {}
 }
-async function loadSnapshot() {
-  var date = document.getElementById('snapDate')?.value || todayStr();
+async function loadStockStatus() {
+  var date = document.getElementById('stockDate')?.value || todayStr();
   var search = document.getElementById('invSearch')?.value || '';
   var shippedOnly = document.getElementById('shippedOnly')?.checked ? 'true' : '';
   var supplier = document.getElementById('invSupplier')?.value || '';
   var category = document.getElementById('invCategory')?.value || '';
   try {
-    var url = API_BASE + '/api/inventory-mgmt/snapshot/' + date + '?limit=200';
+    var url = API_BASE + '/api/inventory-mgmt/stock?date=' + date + '&limit=200';
     if (search) url += '&search=' + encodeURIComponent(search);
     if (shippedOnly) url += '&shipped_only=true';
     if (supplier) url += '&supplier=' + encodeURIComponent(supplier);
     if (category) url += '&category=' + encodeURIComponent(category);
     var r = await fetch(url);
     var j = await r.json();
-    var el = document.getElementById('snapBody');
-    var sm = document.getElementById('snapSummary');
+    var el = document.getElementById('stockBody');
+    var sm = document.getElementById('stockSummary');
     if (!el) return;
     if (!j.success || !j.data?.items?.length) {
-      el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 중...</td></tr>';
-      // 자동 스냅샷 생성
-      try {
-        var sr = await fetch(API_BASE + '/api/inventory-mgmt/snapshot', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:date})});
-        var sj = await sr.json();
-        if (sj.success && sj.data.created > 0) { loadSnapshot(); return; }
-        else { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 먼저 업로드하세요</td></tr>'; }
-      } catch(ee) { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 실패</td></tr>'; }
+      el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 업로드하세요</td></tr>';
       if (sm) sm.innerHTML = '';
       return;
     }

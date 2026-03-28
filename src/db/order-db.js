@@ -174,6 +174,43 @@ class OrderDB {
     const categories = this.db.exec(`SELECT DISTINCT category FROM inventory_snapshot WHERE date = '${date}' AND category != '' ORDER BY category`)[0]?.values?.map(r=>r[0]) || [];
     return { suppliers, categories };
   }
+  getStockStatus(date, opts = {}) {
+    // 재고 마스터에서 기초재고
+    let invSql = 'SELECT product_code, barcode, product_name, option_name, category, supplier, supplier_option, cost_price, sell_price, stock_qty, defect_qty FROM inventory WHERE 1=1';
+    if (opts.search) invSql += ` AND (product_name LIKE '%${opts.search}%' OR product_code LIKE '%${opts.search}%')`;
+    if (opts.supplier) invSql += ` AND supplier = '${opts.supplier}'`;
+    if (opts.category) invSql += ` AND category = '${opts.category}'`;
+    invSql += ' ORDER BY stock_qty DESC';
+    const inventory = this.db.exec(invSql)[0]?.values?.map(r => ({
+      product_code:r[0], barcode:r[1], product_name:r[2], option_name:r[3],
+      category:r[4], supplier:r[5], supplier_option:r[6],
+      cost_price:r[7], sell_price:r[8], stock_qty:r[9]||0, defect_qty:r[10]||0
+    })) || [];
+    if (!inventory.length) return { summary: { date, totalProducts:0, totalBaseStock:0, totalShipped:0, totalExpected:0, movedProducts:0 }, items: [] };
+
+    // 당일 출고 집계: variant_code 매칭
+    const shippedByVariant = {};
+    const r1 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date = '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY variant_code`)[0]?.values || [];
+    for (const [vc, qty] of r1) { shippedByVariant[vc] = qty; }
+    // 상품명 매칭 (2순위)
+    const shippedByName = {};
+    const r2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date = '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
+    for (const [name, qty] of r2) { shippedByName[name] = qty; }
+
+    let items = [], totalBase = 0, totalShipped = 0, totalExpected = 0, movedCount = 0;
+    for (const item of inventory) {
+      const baseStock = item.stock_qty;
+      const shipped = (item.supplier_option && shippedByVariant[item.supplier_option]) || shippedByName[item.product_name] || 0;
+      const expected = baseStock - shipped;
+      totalBase += baseStock; totalShipped += shipped; totalExpected += expected;
+      if (shipped > 0) movedCount++;
+      if (opts.shippedOnly && shipped <= 0) continue;
+      items.push({ product_code:item.product_code, product_name:item.product_name, option_name:item.option_name, supplier:item.supplier, category:item.category, base_stock:baseStock, shipped, expected_stock:expected });
+    }
+    items.sort((a, b) => b.shipped - a.shipped || b.base_stock - a.base_stock);
+    if (opts.limit) items = items.slice(0, opts.limit);
+    return { summary: { date, totalProducts:inventory.length, totalBaseStock:totalBase, totalShipped:totalShipped, totalExpected:totalExpected, movedProducts:movedCount }, items };
+  }
   getSnapshotDates() {
     return this.db.exec('SELECT DISTINCT date FROM inventory_snapshot ORDER BY date DESC LIMIT 30')[0]?.values?.map(r => r[0]) || [];
   }
