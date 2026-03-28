@@ -21,9 +21,16 @@ class OrderDB {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const SQL = await initSqlJs();
     if (fs.existsSync(DB_PATH)) {
-      const buf = fs.readFileSync(DB_PATH);
-      this.db = new SQL.Database(buf);
-      console.log(`[DB] 기존 DB 로드: ${DB_PATH}`);
+      try {
+        const stat = fs.statSync(DB_PATH);
+        console.log(`[DB] 기존 DB 파일 발견: ${DB_PATH} (${Math.round(stat.size/1024/1024)}MB)`);
+        const buf = fs.readFileSync(DB_PATH);
+        this.db = new SQL.Database(buf);
+        console.log(`[DB] 기존 DB 로드 완료: ${DB_PATH}`);
+      } catch(e) {
+        console.error(`[DB] 기존 DB 로드 실패: ${e.message} — 새 DB 생성`);
+        this.db = new SQL.Database();
+      }
     } else {
       this.db = new SQL.Database();
       console.log(`[DB] 새 DB 생성: ${DB_PATH}`);
