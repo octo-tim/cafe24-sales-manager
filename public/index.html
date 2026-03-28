@@ -190,7 +190,7 @@ canvas{max-height:300px}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">재고관리</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">엑셀 업로드 → 주문 대조 → 예상재고 산출</p></div>
     <div style="display:flex;align-items:center;gap:8px">
-      <label class="collect-btn" style="cursor:pointer"><span class="ic-sync">📁</span> 재고 엑셀 업로드<input type="file" id="invFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInventory(this)"></label>
+      <input type="date" id="invBaseDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none" title="재고 기준일"><label class="collect-btn" style="cursor:pointer"><span class="ic-sync">📁</span> 재고 업로드<input type="file" id="invFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInventory(this)"></label>
     </div>
   </div>
 
@@ -645,6 +645,8 @@ async function loadInventory() {
   }
   // 재고현황 날짜 기본값
   var sd = document.getElementById('stockDate');
+  var bd = document.getElementById('invBaseDate');
+  if (bd && !bd.value) bd.value = todayStr();
   if (sd && !sd.value) sd.value = todayStr();
   // 재고 목록
   loadInventoryList();
@@ -656,8 +658,11 @@ async function loadInventory() {
 
 async function uploadInventory(input) {
   if (!input.files[0]) return;
+  var bd = document.getElementById('invBaseDate')?.value;
+  if (!bd) { alert('재고 기준일을 선택하세요.'); input.value=''; return; }
   var fd = new FormData();
   fd.append('file', input.files[0]);
+  fd.append('base_date', bd);
   try {
     var r = await fetch(API_BASE + '/api/inventory-mgmt/upload', { method: 'POST', body: fd });
     var j = await r.json();
@@ -732,7 +737,7 @@ async function loadStockStatus() {
     // 요약
     if (sm && j.data.summary) {
       var s = j.data.summary;
-      sm.innerHTML = '<div style="display:flex;gap:16px;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:6px"><span>날짜: <b>'+s.date+'</b></span><span>전체: <b>'+fN(s.totalProducts)+'종</b></span><span>기초재고: <b>'+fN(s.totalBaseStock)+'</b></span><span style="color:var(--red)">출고: <b>'+fN(s.totalShipped)+'</b></span><span style="color:var(--grn)">예상재고: <b>'+fN(s.totalExpected)+'</b></span><span>출고상품: <b>'+fN(s.movedProducts)+'종</b></span></div>';
+      sm.innerHTML = '<div style="display:flex;gap:16px;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:6px">'+(s.baseDate?'<span>기준일: <b>'+s.baseDate+'</b></span>':'')+'<span>조회일: <b>'+s.date+'</b></span><span>전체: <b>'+fN(s.totalProducts)+'종</b></span><span>기초재고: <b>'+fN(s.totalBaseStock)+'</b></span><span style="color:var(--red)">출고: <b>'+fN(s.totalShipped)+'</b></span><span style="color:var(--grn)">예상재고: <b>'+fN(s.totalExpected)+'</b></span><span>출고상품: <b>'+fN(s.movedProducts)+'종</b></span></div>';
     }
     var h = '';
     j.data.items.forEach(function(it) {

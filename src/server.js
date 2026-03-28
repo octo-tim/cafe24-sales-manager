@@ -286,7 +286,8 @@ app.post('/api/inventory-mgmt/upload', require('multer')({ storage: require('mul
       defect_qty: parseInt(r['불량재고'] || 0),
     })).filter(it => it.product_name);
 
-    const result = orderDB.saveInventory(items);
+    const baseDate = req.body?.base_date || new Date().toISOString().substring(0, 10);
+    const result = orderDB.saveInventory(items, baseDate);
     res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length } });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -313,8 +314,9 @@ app.post("/api/inventory-mgmt/upload-base64", (req, res) => {
       stock_qty: parseInt(r["가용재고"] || r["정상+창고 가용재고"] || 0),
       defect_qty: parseInt(r["불량재고"] || 0),
     })).filter(it => it.product_name);
-    const result = orderDB.saveInventory(items);
-    res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length } });
+    const baseDate = req.body.base_date || new Date().toISOString().substring(0, 10);
+    const result = orderDB.saveInventory(items, baseDate);
+    res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length, baseDate } });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 /** GET /api/inventory-mgmt/list — 재고 목록 */
