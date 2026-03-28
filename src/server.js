@@ -275,6 +275,7 @@ app.post('/api/inventory-mgmt/upload', require('multer')({ storage: require('mul
       option_name: String(r['옵션'] || ''),
       category: String(r['카테고리'] || ''),
       supplier: String(r['공급처'] || ''),
+      supplier_option: String(r['공급처옵션'] || ''),
       cost_price: parseFloat(r['원가'] || 0),
       sell_price: parseFloat(r['판매가'] || 0),
       stock_qty: parseInt(r['가용재고'] || r['정상+창고 가용재고'] || 0),
@@ -375,25 +376,28 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
 
     // 주문 DB에서 상품별 매출/수량 집계 (product_no 포함)
     const salesRows = orderDB.db.exec(`
-      SELECT product_name, product_no, SUM(quantity) as total_qty, SUM(amount) as total_revenue, COUNT(*) as order_count
+      SELECT product_name, product_no, SUM(quantity) as total_qty, SUM(amount) as total_revenue, COUNT(*) as order_count, variant_code
       FROM orders WHERE order_date BETWEEN '${sd}' AND '${ed}'
       AND product_name != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED'
-      GROUP BY product_name, product_no ORDER BY SUM(amount) DESC LIMIT 50
+      GROUP BY product_name, product_no, variant_code ORDER BY SUM(amount) DESC LIMIT 100
     `)[0]?.values || [];
 
-    // 재고 DB에서 원가 매핑 테이블 구축 (barcode, product_code, 상품명 모두 인덱싱)
-    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
+    // 재고 DB에서 원가 매핑 테이블 구축 (supplier_option이 핵심 매칭 키)
+    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
+    const costBySupplierOpt = {};  // 공급처옵션 → {cost, sell, name}
     const costByCode = {};  // product_code/barcode → {cost, sell, name}
     const costByName = {};  // 상품명 → {cost, sell}
-    for (const [code, barcode, name, opt, cost, sell] of invRows) {
+    for (const [code, barcode, name, opt, supplierOpt, cost, sell] of invRows) {
       const entry = { cost, sell, name, option: opt };
+      // 1순위 매칭 키: 공급처옵션 (카페24 custom_variant_code와 매칭)
+      if (supplierOpt) costBySupplierOpt[supplierOpt] = entry;
       if (code) costByCode[code] = entry;
       if (barcode && barcode !== code) costByCode[barcode] = entry;
-      // 상품명 키 (옵션 제외)
       if (!costByName[name]) costByName[name] = entry;
     }
 
-    const items = salesRows.map(([name, productNo, qty, revenue, orders]) => {
+    const items = salesRows.map((salesRow) => {
+      const [name, productNo, qty, revenue, orders] = salesRow;
       let matched = null;
       let matchType = 'none';
       let matchedName = '';
@@ -405,7 +409,7 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         matchedName = matched.name;
       }
 
-      // 2순위: 상품명 정확 매칭
+      // 3순위: 상품명 정확 매칭
       if (!matched && costByName[name]) {
         matched = costByName[name];
         matchType = 'exact';

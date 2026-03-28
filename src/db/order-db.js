@@ -36,18 +36,20 @@ class OrderDB {
 
   _migrate() {
     // 주문
-    this.db.run(`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, channel TEXT NOT NULL, order_id TEXT NOT NULL, order_date TEXT NOT NULL, status TEXT DEFAULT '', product_name TEXT DEFAULT '', product_no TEXT DEFAULT '', quantity INTEGER DEFAULT 1, amount REAL DEFAULT 0, customer TEXT DEFAULT '', raw_json TEXT DEFAULT '{}', collected_at TEXT DEFAULT (datetime('now')), UNIQUE(channel, order_id))`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, channel TEXT NOT NULL, order_id TEXT NOT NULL, order_date TEXT NOT NULL, status TEXT DEFAULT '', product_name TEXT DEFAULT '', product_no TEXT DEFAULT '', variant_code TEXT DEFAULT '', quantity INTEGER DEFAULT 1, amount REAL DEFAULT 0, customer TEXT DEFAULT '', raw_json TEXT DEFAULT '{}', collected_at TEXT DEFAULT (datetime('now')), UNIQUE(channel, order_id))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_ch_date ON orders(channel, order_date)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_variant ON orders(variant_code)`);
     // 수집 이력
     this.db.run(`CREATE TABLE IF NOT EXISTS collect_history (id INTEGER PRIMARY KEY AUTOINCREMENT, trigger_type TEXT NOT NULL, timestamp TEXT NOT NULL, duration INTEGER DEFAULT 0, period_start TEXT, period_end TEXT, period_days INTEGER DEFAULT 0, total_count INTEGER DEFAULT 0, channels_json TEXT DEFAULT '[]', created_at TEXT DEFAULT (datetime('now')))`);
     // 일별 요약
     this.db.run(`CREATE TABLE IF NOT EXISTS daily_summary (date TEXT NOT NULL, channel TEXT NOT NULL, order_count INTEGER DEFAULT 0, total_amount REAL DEFAULT 0, avg_order REAL DEFAULT 0, updated_at TEXT DEFAULT (datetime('now')), PRIMARY KEY(date, channel))`);
     // ★ 재고 마스터 (엑셀 업로드)
-    this.db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, product_code TEXT NOT NULL, barcode TEXT DEFAULT '', product_name TEXT NOT NULL, option_name TEXT DEFAULT '', category TEXT DEFAULT '', supplier TEXT DEFAULT '', cost_price REAL DEFAULT 0, sell_price REAL DEFAULT 0, stock_qty INTEGER DEFAULT 0, defect_qty INTEGER DEFAULT 0, uploaded_at TEXT DEFAULT (datetime('now')), UNIQUE(product_code, option_name))`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, product_code TEXT NOT NULL, barcode TEXT DEFAULT '', product_name TEXT NOT NULL, option_name TEXT DEFAULT '', category TEXT DEFAULT '', supplier TEXT DEFAULT '', supplier_option TEXT DEFAULT '', cost_price REAL DEFAULT 0, sell_price REAL DEFAULT 0, stock_qty INTEGER DEFAULT 0, defect_qty INTEGER DEFAULT 0, uploaded_at TEXT DEFAULT (datetime('now')), UNIQUE(product_code, option_name))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_code ON inventory(product_code)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_name ON inventory(product_name)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_supplier_opt ON inventory(supplier_option)`);
     // ★ 기초재고 스냅샷 (날짜별)
     this.db.run(`CREATE TABLE IF NOT EXISTS inventory_snapshot (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, product_code TEXT NOT NULL, product_name TEXT NOT NULL, option_name TEXT DEFAULT '', base_stock INTEGER DEFAULT 0, shipped INTEGER DEFAULT 0, expected_stock INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')), UNIQUE(date, product_code, option_name))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_snap_date ON inventory_snapshot(date)`);
@@ -68,11 +70,11 @@ class OrderDB {
   saveInventory(items) {
     if (!items?.length) return { inserted: 0 };
     this.db.run('DELETE FROM inventory');
-    const stmt = this.db.prepare('INSERT OR REPLACE INTO inventory (product_code, barcode, product_name, option_name, category, supplier, cost_price, sell_price, stock_qty, defect_qty) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    const stmt = this.db.prepare('INSERT OR REPLACE INTO inventory (product_code, barcode, product_name, option_name, category, supplier, supplier_option, cost_price, sell_price, stock_qty, defect_qty) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
     let cnt = 0;
     for (const it of items) {
       try {
-        stmt.run([it.product_code, it.barcode||'', it.product_name, it.option_name||'', it.category||'', it.supplier||'', it.cost_price||0, it.sell_price||0, it.stock_qty||0, it.defect_qty||0]);
+        stmt.run([it.product_code, it.barcode||'', it.product_name, it.option_name||'', it.category||'', it.supplier||'', it.supplier_option||'', it.cost_price||0, it.sell_price||0, it.stock_qty||0, it.defect_qty||0]);
         cnt++;
       } catch(e) {}
     }
@@ -170,9 +172,9 @@ class OrderDB {
   saveOrders(channel, orders) {
     if (!orders || !orders.length) return { inserted: 0, total: 0 };
     let inserted = 0;
-    const stmt = this.db.prepare(`INSERT OR REPLACE INTO orders (id, channel, order_id, order_date, status, product_name, product_no, quantity, amount, customer, raw_json, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+    const stmt = this.db.prepare(`INSERT OR REPLACE INTO orders (id, channel, order_id, order_date, status, product_name, product_no, variant_code, quantity, amount, customer, raw_json, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
     for (const order of orders) {
-      try { const n = this._normalizeOrder(channel, order); stmt.run([n.id, n.channel, n.order_id, n.order_date, n.status, n.product_name, n.product_no, n.quantity, n.amount, n.customer, n.raw_json]); inserted++; } catch (e) {}
+      try { const n = this._normalizeOrder(channel, order); stmt.run([n.id, n.channel, n.order_id, n.order_date, n.status, n.product_name, n.product_no, n.variant_code, n.quantity, n.amount, n.customer, n.raw_json]); inserted++; } catch (e) {}
     }
     stmt.free();
     this._refreshDailySummary(channel);
@@ -182,10 +184,10 @@ class OrderDB {
 
   _normalizeOrder(channel, raw) {
     switch (channel) {
-      case '카페24': return { id:`c24_${raw.order_id||raw.order_no||Date.now()}`, channel, order_id:String(raw.order_id||raw.order_no||''), order_date:(raw.order_date||raw.created_date||'').substring(0,10), status:raw.order_status||'', product_name:raw.items?.[0]?.product_name||'', product_no:String(raw.items?.[0]?.product_no||''), quantity:raw.items?.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer:raw.buyer_name||'', raw_json:JSON.stringify(raw) };
-      case '쿠팡': return { id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:JSON.stringify(raw) };
-      case '네이버': return { id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:JSON.stringify(raw) };
-      default: return { id:`unk_${Date.now()}`, channel, order_id:'', order_date:'', status:'', product_name:'', product_no:'', quantity:1, amount:0, customer:'', raw_json:'{}' };
+      case '카페24': return { id:`c24_${raw.order_id||raw.order_no||Date.now()}`, channel, order_id:String(raw.order_id||raw.order_no||''), order_date:(raw.order_date||raw.created_date||'').substring(0,10), status:raw.order_status||'', product_name:raw.items?.[0]?.product_name||'', product_no:String(raw.items?.[0]?.product_no||''), variant_code:String(raw.items?.[0]?.custom_variant_code||raw.items?.[0]?.variant_code||''), quantity:raw.items?.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer:raw.buyer_name||'', raw_json:JSON.stringify(raw) };
+      case '쿠팡': return { id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:JSON.stringify(raw) };
+      case '네이버': return { id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:JSON.stringify(raw) };
+      default: return { id:`unk_${Date.now()}`, channel, order_id:'', order_date:'', status:'', product_name:'', product_no:'', variant_code:'', quantity:1, amount:0, customer:'', raw_json:'{}' };
     }
   }
 
