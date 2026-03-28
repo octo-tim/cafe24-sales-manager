@@ -303,6 +303,7 @@ app.post("/api/inventory-mgmt/upload-base64", (req, res) => {
       option_name: String(r["옵션"] || ""),
       category: String(r["카테고리"] || ""),
       supplier: String(r["공급처"] || ""),
+      supplier_option: String(r["공급처옵션"] || ""),
       cost_price: parseFloat(r["원가"] || 0),
       sell_price: parseFloat(r["판매가"] || 0),
       stock_qty: parseInt(r["가용재고"] || r["정상+창고 가용재고"] || 0),

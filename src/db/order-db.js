@@ -90,7 +90,7 @@ class OrderDB {
 
   /** 전체 재고 목록 */
   getInventory(opts = {}) {
-    let sql = 'SELECT product_code, barcode, product_name, option_name, category, supplier, cost_price, sell_price, stock_qty, defect_qty FROM inventory';
+    let sql = 'SELECT product_code, barcode, product_name, option_name, category, supplier, supplier_option, cost_price, sell_price, stock_qty, defect_qty FROM inventory';
     const conds = [];
     if (opts.category) conds.push(`category = '${opts.category}'`);
     if (opts.search) conds.push(`(product_name LIKE '%${opts.search}%' OR product_code LIKE '%${opts.search}%' OR barcode LIKE '%${opts.search}%')`);
@@ -98,7 +98,7 @@ class OrderDB {
     if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
     sql += ' ORDER BY stock_qty DESC';
     if (opts.limit) sql += ` LIMIT ${opts.limit}`;
-    return this.db.exec(sql)[0]?.values?.map(r => ({product_code:r[0],barcode:r[1],product_name:r[2],option_name:r[3],category:r[4],supplier:r[5],cost_price:r[6],sell_price:r[7],stock_qty:r[8],defect_qty:r[9]})) || [];
+    return this.db.exec(sql)[0]?.values?.map(r => ({product_code:r[0],barcode:r[1],product_name:r[2],option_name:r[3],category:r[4],supplier:r[5],supplier_option:r[6],cost_price:r[7],sell_price:r[8],stock_qty:r[9],defect_qty:r[10]})) || [];
   }
 
   /** 재고 통계 */
