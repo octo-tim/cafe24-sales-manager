@@ -119,12 +119,12 @@ class OrderDB {
 
     // 당일 주문에서 출고 수량 집계 (상품명 기준 매칭)
     const orderQtyByVariant = {};
-    const rows = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date <= '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
+    const rows = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date = '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY variant_code`)[0]?.values || [];
     for (const [vc, qty] of rows) { orderQtyByVariant[vc] = qty; }
 
     // 상품코드 기준으로도 매칭 시도
     const orderQtyByName = {};
-    const rows2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date <= '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
+    const rows2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date = '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
     for (const [name, qty] of rows2) { orderQtyByName[name] = qty; }
 
     const stmt = this.db.prepare('INSERT OR REPLACE INTO inventory_snapshot (date, product_code, product_name, option_name, base_stock, shipped, expected_stock) VALUES (?,?,?,?,?,?,?)');
