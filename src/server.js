@@ -54,7 +54,8 @@ app.listen(PORT, '0.0.0.0', () => {
 orderDB.ensureReady().then(async () => {
   dbReady = true;
   cafe24.setDB(orderDB);
-  console.log('[Boot] DB 준비 완료');
+  const stats = orderDB.getStats();
+  console.log('[Boot] DB 준비 완료 — 주문:', stats.totalOrders, '건, 재고:', stats.inventoryProducts, '종, DB:', stats.dbSize);
 
   // 토큰 자동 복구
   const authOk = await cafe24.autoRecover().catch(e => { console.error('[Boot] 토큰 복구 실패:', e.message); return false; });
@@ -68,7 +69,16 @@ orderDB.ensureReady().then(async () => {
       console.log(`[Boot] 초기 수집 완료: ${result.data.totalCount}건 수집, ${result.data.totalSaved}건 DB 저장`);
     }
   }
-}).catch(e => console.error('[Boot] DB 초기화 실패:', e.message));
+}).catch(async (e) => {
+  console.error('[Boot] DB 초기화 실패:', e.message, '— 새 DB로 진행');
+  try {
+    await orderDB._ready;
+  } catch(e2) {}
+  dbReady = true;
+  cafe24.setDB(orderDB);
+  const authOk = await cafe24.autoRecover().catch(() => false);
+  console.log('[Boot] 복구 완료 — 인증:', authOk ? '성공' : '실패');
+});
 
 
 // ═══════════════════════════════════════════════
