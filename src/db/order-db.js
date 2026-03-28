@@ -175,7 +175,7 @@ class OrderDB {
     const categories = this.db.exec(`SELECT DISTINCT category FROM inventory_snapshot WHERE date = '${date}' AND category != '' ORDER BY category`)[0]?.values?.map(r=>r[0]) || [];
     return { suppliers, categories };
   }
-  getStockStatus(date, opts = {}) {
+  getStockStatus(startDate, endDate, opts = {}) {
     // 재고 마스터 + base_date(기준일) 조회
     let invSql = 'SELECT product_code, barcode, product_name, option_name, category, supplier, supplier_option, cost_price, sell_price, stock_qty, defect_qty, base_date FROM inventory WHERE 1=1';
     if (opts.search) invSql += ` AND (product_name LIKE '%${opts.search}%' OR product_code LIKE '%${opts.search}%')`;
@@ -188,63 +188,51 @@ class OrderDB {
       cost_price:r[7], sell_price:r[8], stock_qty:r[9]||0, defect_qty:r[10]||0,
       base_date:r[11]||''
     })) || [];
-    if (!inventory.length) return { summary: { date, baseDate:'', totalProducts:0, totalBaseStock:0, totalShipped:0, totalExpected:0, movedProducts:0 }, items: [] };
+    if (!inventory.length) return { summary: { startDate, endDate, baseDate:'', totalProducts:0, totalBaseStock:0, totalShipped:0, totalExpected:0, movedProducts:0 }, items: [] };
 
-    const baseDate = inventory[0].base_date || date;
+    const baseDate = inventory[0].base_date || startDate;
 
-    // 기초재고 → 기준일부터 조회일까지의 누적 출고를 빼서 계산
-    // 기준일 당일: 기초재고 = 업로드 수량 - 기준일 출고
-    // 기준일 이후: 기초재고 = 업로드 수량 - (기준일~전일 누적 출고)  → 이것이 전일의 기말재고
-    //              당일 출고를 빼면 예상기말재고
+    // 출고 제외 조건: 반품(R%), 취소(C%), CANCELED, RETURNED 제외
+    const excludeStatus = "AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' AND status != 'RETURNED' AND status != 'refund'";
 
-    // 기준일 ~ 조회일까지 누적 출고 (variant_code 매칭)
-    const cumulShippedByVariant = {};
-    const r1 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date <= '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY variant_code`)[0]?.values || [];
-    for (const [vc, qty] of r1) { cumulShippedByVariant[vc] = qty; }
-
-    // 상품명 매칭 (누적)
-    const cumulShippedByName = {};
-    const r2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date <= '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
-    for (const [name, qty] of r2) { cumulShippedByName[name] = qty; }
-
-    // 당일 출고만 (오늘 출고 표시용)
-    const todayShippedByVariant = {};
-    const r3 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date = '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY variant_code`)[0]?.values || [];
-    for (const [vc, qty] of r3) { todayShippedByVariant[vc] = qty; }
-    const todayShippedByName = {};
-    const r4 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date = '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
-    for (const [name, qty] of r4) { todayShippedByName[name] = qty; }
-
-    // 전일까지 누적 출고 (기준일 ~ 전일)
+    // 기준일 ~ 조회시작일 전일까지 누적 출고 → 기초재고 계산
     const prevShippedByVariant = {};
-    const r5 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date < '${date}' AND variant_code != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY variant_code`)[0]?.values || [];
-    for (const [vc, qty] of r5) { prevShippedByVariant[vc] = qty; }
+    const r1 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date < '${startDate}' AND variant_code != '' ${excludeStatus} GROUP BY variant_code`)[0]?.values || [];
+    for (const [vc, qty] of r1) { prevShippedByVariant[vc] = qty; }
     const prevShippedByName = {};
-    const r6 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date < '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
-    for (const [name, qty] of r6) { prevShippedByName[name] = qty; }
+    const r2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date >= '${baseDate}' AND order_date < '${startDate}' ${excludeStatus} GROUP BY product_name`)[0]?.values || [];
+    for (const [name, qty] of r2) { prevShippedByName[name] = qty; }
+
+    // 조회기간 출고 (startDate ~ endDate)
+    const periodShippedByVariant = {};
+    const r3 = this.db.exec(`SELECT variant_code, SUM(quantity) FROM orders WHERE order_date >= '${startDate}' AND order_date <= '${endDate}' AND variant_code != '' ${excludeStatus} GROUP BY variant_code`)[0]?.values || [];
+    for (const [vc, qty] of r3) { periodShippedByVariant[vc] = qty; }
+    const periodShippedByName = {};
+    const r4 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date >= '${startDate}' AND order_date <= '${endDate}' ${excludeStatus} GROUP BY product_name`)[0]?.values || [];
+    for (const [name, qty] of r4) { periodShippedByName[name] = qty; }
 
     let items = [], totalBase = 0, totalShipped = 0, totalExpected = 0, movedCount = 0;
     for (const item of inventory) {
-      const uploadQty = item.stock_qty; // 업로드한 원래 수량
+      const uploadQty = item.stock_qty;
 
-      // 전일까지 누적 출고 → 기초재고 계산
+      // 기초재고 = 업로드수량 - (기준일 ~ 조회시작일 전일 누적출고)
       const prevShipped = (item.supplier_option && prevShippedByVariant[item.supplier_option]) || prevShippedByName[item.product_name] || 0;
-      const baseStock = uploadQty - prevShipped; // 기준일=조회일이면 prevShipped=0이므로 업로드 수량 그대로
+      const baseStock = uploadQty - prevShipped;
 
-      // 당일 출고
-      const todayShipped = (item.supplier_option && todayShippedByVariant[item.supplier_option]) || todayShippedByName[item.product_name] || 0;
+      // 기간 출고 (반품/취소/환불 제외)
+      const periodShipped = (item.supplier_option && periodShippedByVariant[item.supplier_option]) || periodShippedByName[item.product_name] || 0;
 
-      // 예상기말재고 = 기초재고 - 당일출고
-      const expected = baseStock - todayShipped;
+      // 예상기말재고 = 기초재고 - 기간출고
+      const expected = baseStock - periodShipped;
 
-      totalBase += baseStock; totalShipped += todayShipped; totalExpected += expected;
-      if (todayShipped > 0) movedCount++;
-      if (opts.shippedOnly && todayShipped <= 0) continue;
-      items.push({ product_code:item.product_code, product_name:item.product_name, option_name:item.option_name, supplier:item.supplier, category:item.category, base_stock:baseStock, shipped:todayShipped, expected_stock:expected });
+      totalBase += baseStock; totalShipped += periodShipped; totalExpected += expected;
+      if (periodShipped > 0) movedCount++;
+      if (opts.shippedOnly && periodShipped <= 0) continue;
+      items.push({ product_code:item.product_code, product_name:item.product_name, option_name:item.option_name, supplier:item.supplier, category:item.category, base_stock:baseStock, shipped:periodShipped, expected_stock:expected });
     }
     items.sort((a, b) => b.shipped - a.shipped || b.base_stock - a.base_stock);
     if (opts.limit) items = items.slice(0, opts.limit);
-    return { summary: { date, baseDate, totalProducts:inventory.length, totalBaseStock:totalBase, totalShipped:totalShipped, totalExpected:totalExpected, movedProducts:movedCount }, items };
+    return { summary: { startDate, endDate, baseDate, totalProducts:inventory.length, totalBaseStock:totalBase, totalShipped:totalShipped, totalExpected:totalExpected, movedProducts:movedCount }, items };
   }
   getSnapshotDates() {
     return this.db.exec('SELECT DISTINCT date FROM inventory_snapshot ORDER BY date DESC LIMIT 30')[0]?.values?.map(r => r[0]) || [];

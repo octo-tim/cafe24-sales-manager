@@ -344,9 +344,11 @@ app.get('/api/inventory-mgmt/stats', (req, res) => {
 app.get('/api/inventory-mgmt/stock', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
-    const date = req.query.date || new Date().toISOString().substring(0, 10);
+    const today = new Date().toISOString().substring(0, 10);
+    const startDate = req.query.start_date || req.query.date || today;
+    const endDate = req.query.end_date || req.query.date || today;
     const opts = { search: req.query.search||'', supplier: req.query.supplier||'', category: req.query.category||'', shippedOnly: req.query.shipped_only==='true', limit: parseInt(req.query.limit)||200 };
-    const result = orderDB.getStockStatus(date, opts);
+    const result = orderDB.getStockStatus(startDate, endDate, opts);
     res.json({ success: true, data: result });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });

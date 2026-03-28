@@ -197,7 +197,17 @@ canvas{max-height:300px}
   <div class="g4" id="invKpi"></div>
 
   <div class="cd" id="invStockPanel">
-    <div class="ct">재고 현황<div style="display:flex;gap:6px;align-items:center"><input type="date" id="stockDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none"><button class="collect-btn" onclick="loadStockStatus()" style="padding:5px 12px;font-size:11px">조회</button><label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="shippedOnly" onchange="loadStockStatus()"> 출고 있는 상품만</label></div></div>
+    <div class="ct">재고 변동<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="collect-btn" onclick="setStockPeriod('today')" style="padding:4px 10px;font-size:11px">금일</button>
+      <button class="collect-btn" onclick="setStockPeriod('yesterday')" style="padding:4px 10px;font-size:11px">전일</button>
+      <button class="collect-btn" onclick="setStockPeriod('thisWeek')" style="padding:4px 10px;font-size:11px">금주</button>
+      <button class="collect-btn" onclick="setStockPeriod('lastWeek')" style="padding:4px 10px;font-size:11px">전주</button>
+      <input type="date" id="stockStartDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <span style="color:var(--t3);font-size:11px">~</span>
+      <input type="date" id="stockEndDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <button class="collect-btn" onclick="loadStockStatus()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
+      <label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="shippedOnly" onchange="loadStockStatus()"> 출고 있는 상품만</label>
+    </div></div>
     <div id="stockSummary" style="margin-bottom:10px"></div>
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadStockStatus()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
@@ -644,10 +654,12 @@ async function loadInventory() {
     document.getElementById('invKpi').innerHTML = kpiCard('상태','재고 미업로드','','','엑셀 파일을 업로드하세요') + kpiCard('','','','','') + kpiCard('','','','','') + kpiCard('','','','','');
   }
   // 재고현황 날짜 기본값
-  var sd = document.getElementById('stockDate');
+  var ssd = document.getElementById('stockStartDate');
+  var sed = document.getElementById('stockEndDate');
   var bd = document.getElementById('invBaseDate');
   if (bd && !bd.value) bd.value = todayStr();
-  if (sd && !sd.value) sd.value = todayStr();
+  if (ssd && !ssd.value) ssd.value = todayStr();
+  if (sed && !sed.value) sed.value = todayStr();
   // 재고 목록
   loadInventoryList();
   // 필터 목록 로드
@@ -692,7 +704,7 @@ async function loadInventoryList() {
 
 
 async function loadStockFilters() {
-  var date = document.getElementById('stockDate')?.value || todayStr();
+  var date = document.getElementById('stockEndDate')?.value || todayStr();
   try {
     var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters' + date);
     var j = await r.json();
@@ -712,14 +724,38 @@ async function loadStockFilters() {
     }
   } catch(e) {}
 }
+function setStockPeriod(type) {
+  var now = new Date();
+  var sd = document.getElementById('stockStartDate');
+  var ed = document.getElementById('stockEndDate');
+  if (!sd || !ed) return;
+  if (type === 'today') {
+    sd.value = todayStr(); ed.value = todayStr();
+  } else if (type === 'yesterday') {
+    var y = new Date(now); y.setDate(y.getDate()-1); var ys = y.toISOString().substring(0,10);
+    sd.value = ys; ed.value = ys;
+  } else if (type === 'thisWeek') {
+    var dow = now.getDay() || 7;
+    var mon = new Date(now); mon.setDate(mon.getDate() - dow + 1);
+    sd.value = mon.toISOString().substring(0,10); ed.value = todayStr();
+  } else if (type === 'lastWeek') {
+    var dow = now.getDay() || 7;
+    var mon = new Date(now); mon.setDate(mon.getDate() - dow + 1);
+    var lastMon = new Date(mon); lastMon.setDate(lastMon.getDate()-7);
+    var lastSun = new Date(mon); lastSun.setDate(lastSun.getDate()-1);
+    sd.value = lastMon.toISOString().substring(0,10); ed.value = lastSun.toISOString().substring(0,10);
+  }
+  loadStockStatus();
+}
 async function loadStockStatus() {
-  var date = document.getElementById('stockDate')?.value || todayStr();
+  var startDate = document.getElementById('stockStartDate')?.value || todayStr();
+  var endDate = document.getElementById('stockEndDate')?.value || todayStr();
   var search = document.getElementById('invSearch')?.value || '';
   var shippedOnly = document.getElementById('shippedOnly')?.checked ? 'true' : '';
   var supplier = document.getElementById('invSupplier')?.value || '';
   var category = document.getElementById('invCategory')?.value || '';
   try {
-    var url = API_BASE + '/api/inventory-mgmt/stock?date=' + date + '&limit=200';
+    var url = API_BASE + '/api/inventory-mgmt/stock?start_date=' + startDate + '&end_date=' + endDate + '&limit=200';
     if (search) url += '&search=' + encodeURIComponent(search);
     if (shippedOnly) url += '&shipped_only=true';
     if (supplier) url += '&supplier=' + encodeURIComponent(supplier);
@@ -737,7 +773,7 @@ async function loadStockStatus() {
     // 요약
     if (sm && j.data.summary) {
       var s = j.data.summary;
-      sm.innerHTML = '<div style="display:flex;gap:16px;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:6px">'+(s.baseDate?'<span>기준일: <b>'+s.baseDate+'</b></span>':'')+'<span>조회일: <b>'+s.date+'</b></span><span>전체: <b>'+fN(s.totalProducts)+'종</b></span><span>기초재고: <b>'+fN(s.totalBaseStock)+'</b></span><span style="color:var(--red)">출고: <b>'+fN(s.totalShipped)+'</b></span><span style="color:var(--grn)">예상재고: <b>'+fN(s.totalExpected)+'</b></span><span>출고상품: <b>'+fN(s.movedProducts)+'종</b></span></div>';
+      sm.innerHTML = '<div style="display:flex;gap:16px;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:6px">'+(s.baseDate?'<span>기준일: <b>'+s.baseDate+'</b></span>':'')+'<span>조회기간: <b>'+s.startDate+' ~ '+s.endDate+'</b></span><span>전체: <b>'+fN(s.totalProducts)+'종</b></span><span>기초재고: <b>'+fN(s.totalBaseStock)+'</b></span><span style="color:var(--red)">출고: <b>'+fN(s.totalShipped)+'</b></span><span style="color:var(--grn)">예상재고: <b>'+fN(s.totalExpected)+'</b></span><span>출고상품: <b>'+fN(s.movedProducts)+'종</b></span></div>';
     }
     var h = '';
     j.data.items.forEach(function(it) {
