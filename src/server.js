@@ -422,6 +422,29 @@ cron.schedule('0 * * * *', () => {
 
 function ha(res, err) { console.error('[API]', err.message); res.status(err.statusCode||500).json({success:false,error:err.message}); }
 
+// ═══════════════════════════════════════════════
+//  토큰 관리 API
+// ═══════════════════════════════════════════════
+
+/** GET /api/auth/refresh-token — 현재 refresh_token 조회 (환경변수 설정용) */
+app.get('/api/auth/refresh-token', (req, res) => {
+  const rt = cafe24.tokens?.refresh_token || '';
+  const at = cafe24.tokens?.access_token ? '있음' : '없음';
+  const exp = cafe24.tokens?.expires_at || '';
+  const rtExp = cafe24.tokens?.refresh_token_expires_at || '';
+  res.json({
+    success: true,
+    data: {
+      hasAccessToken: !!cafe24.tokens?.access_token,
+      accessTokenStatus: at,
+      expiresAt: exp,
+      refreshToken: rt,
+      refreshTokenExpiresAt: rtExp,
+      hint: rt ? 'Railway Variables에 CAFE24_REFRESH_TOKEN=' + rt + ' 설정하세요' : '먼저 /auth/login으로 인증하세요'
+    }
+  });
+});
+
 app.get('/api/debug/test', async (req, res) => {
   try { const https=require('https'); const token=cafe24.tokens?cafe24.tokens.access_token:null; const m=cafe24.config.mallId; const v=cafe24.config.apiVersion; const r=await new Promise((ok,no)=>{const o={hostname:m+'.cafe24api.com',path:'/api/v2/admin/orders?limit=1',method:'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Cafe24-Api-Version':v}};const q=https.request(o,rs=>{let d='';rs.on('data',c=>d+=c);rs.on('end',()=>ok({status:rs.statusCode,body:d.substring(0,500)}))});q.on('error',no);q.end()}); res.json(r); }
   catch(e){res.json({error:e.message})}
