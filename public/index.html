@@ -178,13 +178,17 @@ canvas{max-height:300px}
         <button class="sf-btn" onclick="setSalesChannel('쿠팡',this)" data-ch="쿠팡"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--cpg);vertical-align:middle;margin-right:3px"></span>쿠팡</button>
         <button class="sf-btn" onclick="setSalesChannel('네이버',this)" data-ch="네이버"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--nvr);vertical-align:middle;margin-right:3px"></span>네이버</button>
       </div>
-      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis()">조회</button></div>
+      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis();loadSalesAnalytics()">조회</button></div>
     </div>
   </div>
   <div class="g4" id="salesKpi"></div>
   <div id="salesChannelCards" class="g3" style="margin-bottom:12px"></div>
   <div class="cd"><div class="ct">일별 매출 추이<span id="salesChartLabel" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div><canvas id="dailySalesChart"></canvas><div class="legend" id="salesLegend"></div></div>
   <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 주문 패턴</div><canvas id="hourlyChart"></canvas></div></div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">시간대별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><canvas id="salesHourlyAna"></canvas></div>
+    <div class="cd"><div class="ct">결제수단별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="salesPayBody" style="max-height:300px;overflow-y:auto"></div></div>
+  </div>
   <div class="cd" id="salesDailyTable"><div class="ct">일별 매출/이익 상세</div><div style="max-height:400px;overflow-y:auto"><table><thead><tr><th>날짜</th><th>카페24</th><th>쿠팡</th><th>네이버</th><th style="font-weight:700">합계</th><th style="color:var(--amb)">원가</th><th style="color:var(--grn)">이익</th><th style="color:var(--grn)">이익률</th></tr></thead><tbody id="salesDailyBody"></tbody></table></div></div>
 
 </div>
@@ -202,6 +206,10 @@ canvas{max-height:300px}
     </div>
   </div>
   <div class="g4" id="prodKpi" style="margin-bottom:16px"></div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">상품별 매출 TOP <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="prodAnaSalesBody" style="max-height:300px;overflow-y:auto"></div></div>
+    <div class="cd"><div class="ct">상품별 조회수 TOP <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="prodAnaViewBody" style="max-height:300px;overflow-y:auto"></div></div>
+  </div>
   <div class="g2" style="margin-bottom:16px">
     <div class="cd">
       <div class="ct">카테고리별 매출 순위</div>
@@ -537,7 +545,7 @@ function renderHistory(list) {
 
 function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis()};if(id==='products')loadProductAnalysis();if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
+function showTab(id,btn){['overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
@@ -1089,6 +1097,57 @@ function renderStockTable() {
 
 
 
+function loadSalesAnalytics(){
+  var sd=document.getElementById('salesStart')?.value||'2026-03-01';
+  var ed=document.getElementById('salesEnd')?.value||todayStr();
+  // 시간대별 매출
+  _anaFetch('sales','times').then(function(d){
+    if(!Array.isArray(d))return;
+    makeChart('salesHourlyAna',{type:'bar',data:{labels:d.map(function(x){return x.hour+'시'}),datasets:[{label:'매출액',data:d.map(function(x){return parseInt(x.order_amount||0)}),backgroundColor:'#3b82f680',borderColor:'#3b82f6',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fW(v)}}}}}});
+  });
+  // 결제수단별 매출
+  _anaFetch('sales','paymethods').then(function(d){
+    var el=document.getElementById('salesPayBody');if(!el||!Array.isArray(d))return;
+    var payNames={'card':'카드','cash':'무통장','point':'포인트','tcash':'간편결제','deposit':'예치금','phone':'핸드폰','etc':'기타'};
+    var total=d.reduce(function(s,x){return s+parseInt(x.order_amount||0)},0);
+    var rows=[];
+    d.forEach(function(x,i){
+      var amt=parseInt(x.order_amount||0);
+      var rate=total>0?Math.round(amt/total*1000)/10:0;
+      rows.push([(i+1)+'',(payNames[x.payment_method]||x.payment_method),fN(x.order_count||0),fW(amt),rate+'%']);
+    });
+    el.innerHTML=_at([['#','center'],['결제수단','left'],['건수','right'],['매출액','right'],['비율','right']],rows);
+  });
+}
+function loadProductAnalytics(){
+  var sd=document.getElementById('prodStart')?.value||'';
+  var ed=document.getElementById('prodEnd')?.value||'';
+  if(!sd){var d=new Date();d.setDate(d.getDate()-30);sd=d.toISOString().substring(0,10)}
+  if(!ed)ed=todayStr();
+  // 상품별 매출 TOP
+  fetch(API_BASE+'/api/analytics/products/sales?start_date='+sd+'&end_date='+ed+'&limit=100&sort=order_amount&order=desc').then(function(r){return r.json()}).then(function(j){
+    var el=document.getElementById('prodAnaSalesBody');if(!el)return;
+    var d=j.success?j.data:null;if(!d)return;
+    var arr=Array.isArray(d)?d:d[Object.keys(d).find(function(k){return Array.isArray(d[k])})]||[];
+    var rows=[];
+    arr.slice(0,20).forEach(function(x,i){
+      rows.push([(i+1)+'',x.product_name||'-',fN(x.order_count||0),fN(x.order_product_count||0),fW(parseInt(x.order_amount||0))]);
+    });
+    el.innerHTML=_at([['#','center'],['상품명','left'],['주문수','right'],['판매수량','right'],['매출액','right']],rows);
+  }).catch(function(){});
+  // 상품별 조회수 TOP
+  fetch(API_BASE+'/api/analytics/products/view?start_date='+sd+'&end_date='+ed+'&limit=100').then(function(r){return r.json()}).then(function(j){
+    var el=document.getElementById('prodAnaViewBody');if(!el)return;
+    var d=j.success?j.data:null;if(!d)return;
+    var arr=Array.isArray(d)?d:d[Object.keys(d).find(function(k){return Array.isArray(d[k])})]||[];
+    arr.sort(function(a,b){return (b.count||0)-(a.count||0)});
+    var rows=[];
+    arr.slice(0,20).forEach(function(x,i){
+      rows.push([(i+1)+'',x.product_name||'-',fN(x.count||x.pageview_count||0)]);
+    });
+    el.innerHTML=_at([['#','center'],['상품명','left'],['조회수','right']],rows);
+  }).catch(function(){});
+}
 function setAnaPeriod(type){var sd=document.getElementById('anaStart');var ed=document.getElementById('anaEnd');if(!sd||!ed)return;var now=new Date();var y=now.getFullYear(),m=now.getMonth(),d=now.getDate();if(type==='today'){sd.value=todayStr();ed.value=todayStr()}else if(type==='yesterday'){var yd=new Date(now);yd.setDate(yd.getDate()-1);sd.value=yd.toISOString().substring(0,10);ed.value=sd.value}else if(type==='thisWeek'){var dow=now.getDay()||7;var mon=new Date(now);mon.setDate(mon.getDate()-dow+1);sd.value=mon.toISOString().substring(0,10);ed.value=todayStr()}else if(type==='lastWeek'){var dow=now.getDay()||7;var mon=new Date(now);mon.setDate(mon.getDate()-dow+1);var lm=new Date(mon);lm.setDate(lm.getDate()-7);var ls=new Date(mon);ls.setDate(ls.getDate()-1);sd.value=lm.toISOString().substring(0,10);ed.value=ls.toISOString().substring(0,10)}else if(type==='thisMonth'){sd.value=y+'-'+String(m+1).padStart(2,'0')+'-01';ed.value=todayStr()}else if(type==='lastMonth'){var pm=m===0?11:m-1;var py=m===0?y-1:y;var lastDay=new Date(py,pm+1,0).getDate();sd.value=py+'-'+String(pm+1).padStart(2,'0')+'-01';ed.value=py+'-'+String(pm+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0')}loadAllAnalytics()}
 function initAnalyticsTab(){var sd=document.getElementById('anaStart');var ed=document.getElementById('anaEnd');if(sd&&!sd.value){var d=new Date();d.setDate(d.getDate()-7);sd.value=d.toISOString().substring(0,10)}if(ed&&!ed.value)ed.value=todayStr();loadAllAnalytics()}
 function _anaFetch(cat,ep,extra){var sd=document.getElementById('anaStart')?.value||'';var ed=document.getElementById('anaEnd')?.value||'';var url=API_BASE+'/api/analytics/'+cat+'/'+ep+'?start_date='+sd+'&end_date='+ed+'&limit=100';if(extra)url+='&'+extra;return fetch(url).then(function(r){return r.json()}).then(function(j){if(!j.success)return null;var d=j.data;if(!d)return null;if(d.error)return{_error:d.error.message||'API오류'};if(Array.isArray(d))return d;var keys=Object.keys(d);for(var i=0;i<keys.length;i++){if(Array.isArray(d[keys[i]]))return d[keys[i]]}return null}).catch(function(){return null})}
