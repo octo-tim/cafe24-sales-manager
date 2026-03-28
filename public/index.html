@@ -185,7 +185,6 @@ canvas{max-height:300px}
   <div id="salesChannelCards" class="g3" style="margin-bottom:12px"></div>
   <div class="cd"><div class="ct">일별 매출 추이<span id="salesChartLabel" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div><canvas id="dailySalesChart"></canvas><div class="legend" id="salesLegend"></div></div>
   <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><canvas id="salesHourlyAna"></canvas></div></div>
-  <div class="cd" style="margin-bottom:16px"><div class="ct">결제수단별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="salesPayBody" style="max-height:300px;overflow-y:auto"></div></div>
   <div class="cd" id="salesDailyTable"><div class="ct">일별 매출/이익 상세</div><div style="max-height:400px;overflow-y:auto"><table><thead><tr><th>날짜</th><th>카페24</th><th>쿠팡</th><th>네이버</th><th style="font-weight:700">합계</th><th style="color:var(--amb)">원가</th><th style="color:var(--grn)">이익</th><th style="color:var(--grn)">이익률</th></tr></thead><tbody id="salesDailyBody"></tbody></table></div></div>
 
 </div>
@@ -1109,19 +1108,7 @@ function loadSalesAnalytics(){
     if(!Array.isArray(d))return;
     makeChart('salesHourlyAna',{type:'bar',data:{labels:d.map(function(x){return x.hour+'시'}),datasets:[{label:'매출액',data:d.map(function(x){return parseInt(x.order_amount||0)}),backgroundColor:'#3b82f680',borderColor:'#3b82f6',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fW(v)}}}}}});
   });
-  // 결제수단별 매출
-  _anaFetchCustom('sales','paymethods',sd,ed).then(function(d){
-    var el=document.getElementById('salesPayBody');if(!el||!Array.isArray(d))return;
-    var payNames={'card':'카드','cash':'무통장','point':'포인트','tcash':'간편결제','deposit':'예치금','phone':'핸드폰','etc':'기타'};
-    var total=d.reduce(function(s,x){return s+parseInt(x.order_amount||0)},0);
-    var rows=[];
-    d.forEach(function(x,i){
-      var amt=parseInt(x.order_amount||0);
-      var rate=total>0?Math.round(amt/total*1000)/10:0;
-      rows.push([(i+1)+'',(payNames[x.payment_method]||x.payment_method),fN(x.order_count||0),fW(amt),rate+'%']);
-    });
-    el.innerHTML=_at([['#','center'],['결제수단','left'],['건수','right'],['매출액','right'],['비율','right']],rows);
-  });
+
 }
 function loadProductAnalytics(){
   var sd=document.getElementById('prodStart')?.value||'';
