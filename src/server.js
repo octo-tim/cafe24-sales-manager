@@ -398,13 +398,20 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
     }
 
     const items = salesRows.map((salesRow) => {
-      const [name, productNo, qty, revenue, orders] = salesRow;
+      const [name, productNo, qty, revenue, orders, variantCode] = salesRow;
       let matched = null;
       let matchType = 'none';
       let matchedName = '';
 
-      // 1순위: product_no → barcode/product_code 매칭
-      if (productNo && costByCode[productNo]) {
+      // 1순위: variant_code(custom_variant_code) → supplier_option(공급처옵션) 매칭
+      if (variantCode && costBySupplierOpt[variantCode]) {
+        matched = costBySupplierOpt[variantCode];
+        matchType = 'code';
+        matchedName = matched.name;
+      }
+
+      // 2순위: product_no → barcode/product_code 매칭
+      if (!matched && productNo && costByCode[productNo]) {
         matched = costByCode[productNo];
         matchType = 'code';
         matchedName = matched.name;
