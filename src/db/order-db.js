@@ -36,11 +36,15 @@ class OrderDB {
 
   _migrate() {
     // 주문
-    this.db.run(`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, channel TEXT NOT NULL, order_id TEXT NOT NULL, order_date TEXT NOT NULL, status TEXT DEFAULT '', product_name TEXT DEFAULT '', product_no TEXT DEFAULT '', variant_code TEXT DEFAULT '', quantity INTEGER DEFAULT 1, amount REAL DEFAULT 0, customer TEXT DEFAULT '', raw_json TEXT DEFAULT '{}', collected_at TEXT DEFAULT (datetime('now')), UNIQUE(channel, order_id))`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, channel TEXT NOT NULL, order_id TEXT NOT NULL, order_date TEXT NOT NULL, status TEXT DEFAULT '', product_name TEXT DEFAULT '', product_no TEXT DEFAULT '', variant_code TEXT DEFAULT '', quantity INTEGER DEFAULT 1, amount REAL DEFAULT 0, customer TEXT DEFAULT '', raw_json TEXT DEFAULT '{}', collected_at TEXT DEFAULT (datetime('now')), UNIQUE(channel, id))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_ch_date ON orders(channel, order_date)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_orders_variant ON orders(variant_code)`);
+
+    // 마이그레이션: 기존 DB에 variant_code/supplier_option 컬럼 추가
+    try { this.db.run('ALTER TABLE orders ADD COLUMN variant_code TEXT DEFAULT ""'); } catch(e) {}
+    try { this.db.run('ALTER TABLE inventory ADD COLUMN supplier_option TEXT DEFAULT ""'); } catch(e) {}
     // 수집 이력
     this.db.run(`CREATE TABLE IF NOT EXISTS collect_history (id INTEGER PRIMARY KEY AUTOINCREMENT, trigger_type TEXT NOT NULL, timestamp TEXT NOT NULL, duration INTEGER DEFAULT 0, period_start TEXT, period_end TEXT, period_days INTEGER DEFAULT 0, total_count INTEGER DEFAULT 0, channels_json TEXT DEFAULT '[]', created_at TEXT DEFAULT (datetime('now')))`);
     // 일별 요약
@@ -228,7 +232,7 @@ class OrderDB {
   getTopProducts(s, e, l=20) { return this.db.exec(`SELECT product_name,channel,SUM(quantity),SUM(amount),COUNT(*) FROM orders WHERE order_date BETWEEN '${s}' AND '${e}' AND product_name!='' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status!='CANCELED' AND status!='RETURNED' GROUP BY product_name,channel ORDER BY SUM(amount) DESC LIMIT ${l}`)[0]?.values?.map(r=>({product_name:r[0],channel:r[1],total_qty:r[2],total_amount:r[3],order_count:r[4]}))||[]; }
   getOrderCount() { return this.db.exec('SELECT COUNT(*) FROM orders')[0]?.values?.[0]?.[0]||0; }
   getOrderCountByChannel() { return this.db.exec('SELECT channel,COUNT(*) FROM orders GROUP BY channel')[0]?.values?.map(r=>({channel:r[0],count:r[1]}))||[]; }
-  getRecentOrders(l=50, ch) { let q='SELECT id,channel,order_id,order_date,status,product_name,quantity,amount,customer FROM orders'; if(ch&&ch!=='all')q+=` WHERE channel='${ch}'`; q+=` ORDER BY order_date DESC LIMIT ${l}`; return this.db.exec(q)[0]?.values?.map(r=>({id:r[0],channel:r[1],order_id:r[2],order_date:r[3],status:r[4],product_name:r[5],quantity:r[6],amount:r[7],customer:r[8]}))||[]; }
+  getRecentOrders(l=50, ch) { let q='SELECT id,channel,order_id,order_date,status,product_name,quantity,amount,customer,variant_code FROM orders'; if(ch&&ch!=='all')q+=` WHERE channel='${ch}'`; q+=` ORDER BY order_date DESC LIMIT ${l}`; return this.db.exec(q)[0]?.values?.map(r=>({id:r[0],channel:r[1],order_id:r[2],order_date:r[3],status:r[4],product_name:r[5],quantity:r[6],amount:r[7],customer:r[8],variant_code:r[9]||''}))||[]; }
   getDashboardData(s, e) { const sm=this.getSalesSummary(s,e);const dl=this.getDailySales(s,e);const tp=this.getTopProducts(s,e);const to=this.getOrderCount();const ch={};for(const r of sm)ch[r.channel]={channel:r.channel,revenue:r.total_amount,orders:r.order_count,avgOrder:r.avg_order};const dm={};for(const r of dl){if(!dm[r.date])dm[r.date]={date:r.date,카페24:0,쿠팡:0,네이버:0,total:0};dm[r.date][r.channel]=r.total_amount;dm[r.date].total+=r.total_amount;}const tr=sm.reduce((a,r)=>a+r.total_amount,0);const tc=sm.reduce((a,r)=>a+r.order_count,0);return{summary:{totalRevenue:tr,totalOrders:tc,avgOrderValue:tc>0?Math.round(tr/tc):0},channels:ch,dailySales:Object.values(dm).sort((a,b)=>a.date.localeCompare(b.date)),topProducts:tp,dbTotalOrders:to,fromDB:true}; }
 
   // 수집 이력
