@@ -174,7 +174,13 @@ class OrderDB {
     let inserted = 0;
     const stmt = this.db.prepare(`INSERT OR REPLACE INTO orders (id, channel, order_id, order_date, status, product_name, product_no, variant_code, quantity, amount, customer, raw_json, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
     for (const order of orders) {
-      try { const n = this._normalizeOrder(channel, order); stmt.run([n.id, n.channel, n.order_id, n.order_date, n.status, n.product_name, n.product_no, n.variant_code, n.quantity, n.amount, n.customer, n.raw_json]); inserted++; } catch (e) {}
+      try {
+        const rows = this._normalizeOrder(channel, order);
+        for (const n of rows) {
+          stmt.run([n.id, n.channel, n.order_id, n.order_date, n.status, n.product_name, n.product_no, n.variant_code, n.quantity, n.amount, n.customer, n.raw_json]);
+          inserted++;
+        }
+      } catch (e) {}
     }
     stmt.free();
     this._refreshDailySummary(channel);
@@ -184,10 +190,30 @@ class OrderDB {
 
   _normalizeOrder(channel, raw) {
     switch (channel) {
-      case '카페24': return { id:`c24_${raw.order_id||raw.order_no||Date.now()}`, channel, order_id:String(raw.order_id||raw.order_no||''), order_date:(raw.order_date||raw.created_date||'').substring(0,10), status:raw.order_status||'', product_name:raw.items?.[0]?.product_name||'', product_no:String(raw.items?.[0]?.product_no||''), variant_code:String(raw.items?.[0]?.custom_variant_code||raw.items?.[0]?.variant_code||''), quantity:raw.items?.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer:raw.buyer_name||'', raw_json:JSON.stringify(raw) };
-      case '쿠팡': return { id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:JSON.stringify(raw) };
-      case '네이버': return { id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:JSON.stringify(raw) };
-      default: return { id:`unk_${Date.now()}`, channel, order_id:'', order_date:'', status:'', product_name:'', product_no:'', variant_code:'', quantity:1, amount:0, customer:'', raw_json:'{}' };
+      case '카페24': {
+        const orderId = String(raw.order_id||raw.order_no||Date.now());
+        const orderDate = (raw.order_date||raw.created_date||'').substring(0,10);
+        const status = raw.order_status||'';
+        const customer = raw.buyer_name||'';
+        const items = raw.items || [];
+        if (items.length <= 1) {
+          return [{ id:`c24_${orderId}`, channel, order_id:orderId, order_date:orderDate, status, product_name:items[0]?.product_name||'', product_no:String(items[0]?.product_no||''), variant_code:String(items[0]?.custom_variant_code||items[0]?.variant_code||''), quantity:items.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer, raw_json:JSON.stringify(raw) }];
+        }
+        // 여러 items → item별 분리 저장
+        return items.map((item, idx) => ({
+          id:`c24_${orderId}_${idx}`,
+          channel, order_id:orderId, order_date:orderDate, status,
+          product_name:item.product_name||'',
+          product_no:String(item.product_no||''),
+          variant_code:String(item.custom_variant_code||item.variant_code||''),
+          quantity:parseInt(item.quantity||1),
+          amount:parseFloat(item.payment_amount||item.product_price||0)*parseInt(item.quantity||1),
+          customer, raw_json:JSON.stringify(raw)
+        }));
+      }
+      case '쿠팡': return [{ id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:JSON.stringify(raw) }];
+      case '네이버': return [{ id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:JSON.stringify(raw) }];
+      default: return [{ id:`unk_${Date.now()}`, channel, order_id:'', order_date:'', status:'', product_name:'', product_no:'', variant_code:'', quantity:1, amount:0, customer:'', raw_json:'{}' }];
     }
   }
 
