@@ -81,6 +81,7 @@ canvas{max-height:300px}
     <button class="on" onclick="showTab('overview',this)">통합 대시보드</button>
     <button onclick="showTab('collector',this)">주문 수집</button>
     <button onclick="showTab('sales',this)">매출 분석</button>
+    <button onclick="showTab('products',this)">상품분석</button>
     <button onclick="showTab('inventory',this)">재고관리</button>
     <button onclick="location.href='/setup.html'">설정</button>
   </div>
@@ -186,6 +187,56 @@ canvas{max-height:300px}
 
 </div>
 
+
+<!-- ═══ TAB: 상품분석 ═══ -->
+<div id="tab-products" class="hide">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div><h2 style="font-size:20px;font-weight:700">상품분석</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">기간별 상품/카테고리 매출·이익 순위</p></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input type="date" id="prodStart" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <span style="color:var(--t3)">~</span>
+      <input type="date" id="prodEnd" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <button class="collect-btn" onclick="loadProductAnalysis()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
+    </div>
+  </div>
+  <div class="g4" id="prodKpi" style="margin-bottom:16px"></div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd">
+      <div class="ct">카테고리별 매출 순위</div>
+      <div id="catRankBody" style="max-height:350px;overflow-y:auto"></div>
+    </div>
+    <div class="cd">
+      <div class="ct">카테고리별 이익 순위</div>
+      <div id="catProfitBody" style="max-height:350px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <div class="cd">
+    <div class="ct">상품별 매출·이익 순위
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="prodSortBy" onchange="renderProductTable()" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+          <option value="revenue">매출순</option>
+          <option value="margin">이익순</option>
+          <option value="qty">수량순</option>
+          <option value="margin_rate">이익률순</option>
+        </select>
+        <input type="text" id="prodSearch" placeholder="상품명 검색" oninput="renderProductTable()" style="width:180px;padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+      </div>
+    </div>
+    <div style="max-height:500px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>#</th><th>상품명</th>
+          <th style="text-align:right;cursor:pointer" onclick="setProdSort('qty')">수량 ↕</th>
+          <th style="text-align:right;cursor:pointer" onclick="setProdSort('revenue')">매출 ↕</th>
+          <th style="text-align:right;cursor:pointer" onclick="setProdSort('margin')">이익 ↕</th>
+          <th style="text-align:right;cursor:pointer" onclick="setProdSort('margin_rate')">이익률 ↕</th>
+          <th>매칭</th>
+        </tr></thead>
+        <tbody id="prodTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 <!-- ═══ TAB: 재고관리 ═══ -->
 <div id="tab-inventory" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -451,7 +502,7 @@ function renderHistory(list) {
 
 function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['overview','collector','sales','inventory'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis()};if(id==='inventory')loadInventory()}
+function showTab(id,btn){['overview','collector','sales','products','inventory'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis()};if(id==='products')loadProductAnalysis();if(id==='inventory')loadInventory()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
@@ -786,6 +837,112 @@ async function loadStockFilters() {
       }
     }
   } catch(e) {}
+}
+// ═══ 상품분석 ═══
+async function loadProductAnalysis() {
+  var sd = document.getElementById('prodStart');
+  var ed = document.getElementById('prodEnd');
+  if (!sd.value) { var d=new Date(); d.setDate(d.getDate()-30); sd.value=d.toISOString().substring(0,10); }
+  if (!ed.value) ed.value = todayStr();
+  try {
+    var r = await fetch(API_BASE+'/api/inventory-mgmt/margin?start_date='+sd.value+'&end_date='+ed.value);
+    var j = await r.json();
+    if (!j.success) return;
+    window._prodData = j.data;
+    var s = j.data.summary;
+    // KPI
+    var kpi = document.getElementById('prodKpi');
+    if (kpi) {
+      kpi.innerHTML =
+        kpiCard('총 매출', fW(s.totalRevenue), '', '', sd.value+'~'+ed.value) +
+        kpiCard('매칭 원가', fW(s.matchedCost), '', '', '매칭 '+s.matchedProducts+'종') +
+        kpiCard('매칭 이익', fW(s.matchedMargin), '', '', '매출-원가') +
+        kpiCard('이익률', s.matchedMarginRate+'%', '', '', '미매칭 '+s.unmatchedProducts+'종');
+    }
+    // 카테고리 분석
+    renderCategoryRanks(j.data.items);
+    // 상품 테이블
+    renderProductTable();
+  } catch(e) { console.log('[Prod]', e.message); }
+}
+function renderCategoryRanks(items) {
+  // 카테고리별 집계
+  var cats = {};
+  items.forEach(function(it) {
+    // 상품명에서 카테고리 추정 (재고 매칭된 상품의 카테고리 사용)
+    var cat = it.match_type !== 'none' ? (it.matched_inv_name || '').substring(0,10) : '미분류';
+    // 실제로는 재고DB의 카테고리를 사용해야 하지만, margin API에서 카테고리를 직접 반환하지 않으므로
+    // 상품명 첫 부분으로 그룹화
+    var prefix = it.product_name.replace(/\[.*?\]/g,'').trim().split(/\s+/)[0] || '기타';
+    if (!cats[prefix]) cats[prefix] = {name:prefix, revenue:0, cost:0, margin:0, qty:0, count:0};
+    cats[prefix].revenue += it.total_revenue;
+    cats[prefix].cost += it.total_cost;
+    cats[prefix].margin += it.margin;
+    cats[prefix].qty += it.total_qty;
+    cats[prefix].count++;
+  });
+  var catList = Object.values(cats).sort(function(a,b){return b.revenue - a.revenue});
+  // 매출 순위
+  var el1 = document.getElementById('catRankBody');
+  if (el1) {
+    var h = '<table style="width:100%"><thead><tr><th>#</th><th>카테고리</th><th style="text-align:right">매출</th><th style="text-align:right">수량</th><th style="text-align:right">상품수</th></tr></thead><tbody>';
+    catList.slice(0,15).forEach(function(c,i){
+      h += '<tr><td style="color:var(--t3)">'+(i+1)+'</td><td style="font-weight:600">'+c.name+'</td><td style="text-align:right">'+fW(c.revenue)+'</td><td style="text-align:right">'+fN(c.qty)+'</td><td style="text-align:right;color:var(--t2)">'+c.count+'종</td></tr>';
+    });
+    h += '</tbody></table>';
+    el1.innerHTML = h;
+  }
+  // 이익 순위
+  var catProfit = catList.slice().sort(function(a,b){return b.margin - a.margin});
+  var el2 = document.getElementById('catProfitBody');
+  if (el2) {
+    var h = '<table style="width:100%"><thead><tr><th>#</th><th>카테고리</th><th style="text-align:right">이익</th><th style="text-align:right">이익률</th><th style="text-align:right">매출</th></tr></thead><tbody>';
+    catProfit.slice(0,15).forEach(function(c,i){
+      var rate = c.revenue>0 ? Math.round(c.margin/c.revenue*1000)/10 : 0;
+      var rateColor = rate>=30?'var(--grn)':rate>=15?'var(--amb)':'var(--red)';
+      h += '<tr><td style="color:var(--t3)">'+(i+1)+'</td><td style="font-weight:600">'+c.name+'</td><td style="text-align:right;color:var(--grn);font-weight:600">'+fW(c.margin)+'</td><td style="text-align:right;color:'+rateColor+'">'+rate+'%</td><td style="text-align:right;color:var(--t2)">'+fW(c.revenue)+'</td></tr>';
+    });
+    h += '</tbody></table>';
+    el2.innerHTML = h;
+  }
+}
+function setProdSort(field) {
+  var sel = document.getElementById('prodSortBy');
+  if (sel) sel.value = field;
+  renderProductTable();
+}
+function renderProductTable() {
+  var data = window._prodData;
+  if (!data) return;
+  var items = (data.items || []).slice();
+  var search = (document.getElementById('prodSearch')?.value || '').toLowerCase();
+  if (search) items = items.filter(function(it){ return it.product_name.toLowerCase().includes(search); });
+  var sortBy = document.getElementById('prodSortBy')?.value || 'revenue';
+  items.sort(function(a,b){
+    if (sortBy==='revenue') return b.total_revenue - a.total_revenue;
+    if (sortBy==='margin') return b.margin - a.margin;
+    if (sortBy==='qty') return b.total_qty - a.total_qty;
+    if (sortBy==='margin_rate') return b.margin_rate - a.margin_rate;
+    return 0;
+  });
+  var tb = document.getElementById('prodTableBody');
+  if (!tb) return;
+  var h = '';
+  items.forEach(function(it, idx) {
+    var mrColor = it.margin_rate>=30?'var(--grn)':it.margin_rate>=15?'var(--amb)':it.margin_rate>0?'var(--t1)':'var(--red)';
+    var matchBadge = it.match_type==='code'?'<span style="color:var(--grn);font-size:10px">코드</span>':it.match_type==='exact'?'<span style="color:var(--c24);font-size:10px">상품명</span>':it.match_type==='partial'?'<span style="color:var(--amb);font-size:10px">부분</span>':'<span style="color:var(--t3);font-size:10px">-</span>';
+    h += '<tr>';
+    h += '<td style="color:var(--t3);font-size:11px">'+(idx+1)+'</td>';
+    h += '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.product_name+'">'+it.product_name+'</td>';
+    h += '<td style="text-align:right">'+fN(it.total_qty)+'</td>';
+    h += '<td style="text-align:right;font-weight:600">'+fW(it.total_revenue)+'</td>';
+    h += '<td style="text-align:right;color:'+(it.margin>=0?'var(--grn)':'var(--red)')+';font-weight:600">'+fW(it.margin)+'</td>';
+    h += '<td style="text-align:right;color:'+mrColor+'">'+(it.match_type!=='none'?it.margin_rate+'%':'-')+'</td>';
+    h += '<td>'+matchBadge+'</td>';
+    h += '</tr>';
+  });
+  if (!h) h = '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>';
+  tb.innerHTML = h;
 }
 function setStockPeriod(type) {
   var now = new Date();
