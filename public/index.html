@@ -799,16 +799,61 @@ async function loadStockStatus() {
       var s = j.data.summary;
       sm.innerHTML = '<div style="display:flex;gap:16px;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:6px">'+(s.baseDate?'<span>기준일: <b>'+s.baseDate+'</b></span>':'')+'<span>조회기간: <b>'+s.startDate+' ~ '+s.endDate+'</b></span><span>전체: <b>'+fN(s.totalProducts)+'종</b></span><span>기초재고: <b>'+fN(s.totalBaseStock)+'</b></span><span style="color:var(--red)">출고: <b>'+fN(s.totalShipped)+'</b></span><span style="color:var(--grn)">예상재고: <b>'+fN(s.totalExpected)+'</b></span><span>출고상품: <b>'+fN(s.movedProducts)+'종</b></span></div>';
     }
-    var h = '';
-    j.data.items.forEach(function(it) {
-      var stockColor = it.expected_stock <= 0 ? 'var(--red)' : it.expected_stock < 10 ? 'var(--amb)' : 'var(--grn)';
-      h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td><td style="color:var(--t2);font-size:11px">'+(it.supplier||'')+'</td><td style="color:var(--t2);font-size:11px">'+(it.category||'')+'</td>';
-      h += '<td style="text-align:right">'+fN(it.base_stock)+'</td>';
-      h += '<td style="text-align:right;color:var(--red);font-weight:'+(it.shipped>0?'700':'400')+'">'+(it.shipped>0?'-'+fN(it.shipped):'0')+'</td>';
-      h += '<td style="text-align:right;font-weight:700;color:'+stockColor+'">'+fN(it.expected_stock)+'</td></tr>';
+    window._stockItems = j.data.items || [];
+    renderStockTable();
+  } catch(e) { console.log('[Stock]', e.message); }
+}
+function setSortAndRender(field) {
+  var sel = document.getElementById('invSort');
+  if (!sel) return;
+  var cur = sel.value;
+  if (field === 'expected') sel.value = cur === 'expected_asc' ? 'expected_desc' : 'expected_asc';
+  else if (field === 'shipped') sel.value = cur === 'shipped_desc' ? 'shipped_asc' : 'shipped_desc';
+  else if (field === 'base') sel.value = cur === 'base_desc' ? 'base_asc' : 'base_desc';
+  renderStockTable();
+}
+function renderStockTable() {
+  var items = (window._stockItems || []).slice();
+  var el = document.getElementById('stockBody');
+  if (!el) return;
+  // 수량 필터
+  var qtyField = document.getElementById('invQtyField')?.value || '';
+  var qtyOp = document.getElementById('invQtyOp')?.value || 'lte';
+  var qtyVal = parseFloat(document.getElementById('invQtyVal')?.value || 0);
+  if (qtyField) {
+    items = items.filter(function(it) {
+      var v = it[qtyField] || 0;
+      if (qtyOp === 'lte') return v <= qtyVal;
+      if (qtyOp === 'gte') return v >= qtyVal;
+      if (qtyOp === 'eq') return v === qtyVal;
+      if (qtyOp === 'lt') return v < qtyVal;
+      if (qtyOp === 'gt') return v > qtyVal;
+      return true;
     });
-    el.innerHTML = h;
-  } catch(e) { console.log('[Inv]', e.message); }
+  }
+  // 정렬
+  var sortVal = document.getElementById('invSort')?.value || 'shipped_desc';
+  items.sort(function(a, b) {
+    if (sortVal === 'shipped_desc') return b.shipped - a.shipped || b.base_stock - a.base_stock;
+    if (sortVal === 'shipped_asc') return a.shipped - b.shipped || a.base_stock - b.base_stock;
+    if (sortVal === 'expected_asc') return a.expected_stock - b.expected_stock;
+    if (sortVal === 'expected_desc') return b.expected_stock - a.expected_stock;
+    if (sortVal === 'base_desc') return b.base_stock - a.base_stock;
+    if (sortVal === 'base_asc') return a.base_stock - b.base_stock;
+    return 0;
+  });
+  var h = '';
+  items.forEach(function(it) {
+    var stockColor = it.expected_stock <= 0 ? 'var(--red)' : it.expected_stock < 10 ? 'var(--amb)' : 'var(--grn)';
+    h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td>';
+    h += '<td style="color:var(--t2);font-size:11px">'+(it.supplier||'')+'</td>';
+    h += '<td style="color:var(--t2);font-size:11px">'+(it.category||'')+'</td>';
+    h += '<td style="text-align:right">'+fN(it.base_stock)+'</td>';
+    h += '<td style="text-align:right;color:var(--red);font-weight:'+(it.shipped>0?'700':'400')+'">'+(it.shipped>0?'-'+fN(it.shipped):'0')+'</td>';
+    h += '<td style="text-align:right;font-weight:700;color:'+stockColor+'">'+fN(it.expected_stock)+'</td></tr>';
+  });
+  if (!h) h = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">조건에 맞는 상품이 없습니다</td></tr>';
+  el.innerHTML = h;
 }
 
 
