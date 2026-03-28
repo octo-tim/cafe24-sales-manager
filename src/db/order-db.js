@@ -8,7 +8,7 @@ const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'orders.db');
+const DB_PATH = process.env.DB_PATH || (process.env.RAILWAY_ENVIRONMENT ? '/app/persistent/orders.db' : path.join(__dirname, '..', '..', 'data', 'orders.db'));
 
 class OrderDB {
   constructor() {

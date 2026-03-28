@@ -15,7 +15,7 @@ const multiChannelRouter = require('./routes/multichannel');
 const OrderDB = require('./db/order-db');
 
 const config = {
-  cafe24: { mallId: process.env.CAFE24_MALL_ID || 'yourmall', clientId: process.env.CAFE24_CLIENT_ID || '', clientSecret: process.env.CAFE24_CLIENT_SECRET || '', redirectUri: process.env.CAFE24_REDIRECT_URI || 'http://localhost:3000/auth/callback', apiVersion: process.env.CAFE24_API_VERSION || '2026-03-01', tokenStorePath: process.env.TOKEN_STORE_PATH || './tokens.json' },
+  cafe24: { mallId: process.env.CAFE24_MALL_ID || 'yourmall', clientId: process.env.CAFE24_CLIENT_ID || '', clientSecret: process.env.CAFE24_CLIENT_SECRET || '', redirectUri: process.env.CAFE24_REDIRECT_URI || 'http://localhost:3000/auth/callback', apiVersion: process.env.CAFE24_API_VERSION || '2026-03-01', tokenStorePath: process.env.TOKEN_STORE_PATH || (process.env.RAILWAY_ENVIRONMENT ? '/app/persistent/tokens.json' : './tokens.json') },
   coupang: { vendorId: process.env.COUPANG_VENDOR_ID || '', accessKey: process.env.COUPANG_ACCESS_KEY || '', secretKey: process.env.COUPANG_SECRET_KEY || '' },
   naver: { clientId: process.env.NAVER_COMMERCE_CLIENT_ID || '', clientSecret: process.env.NAVER_COMMERCE_CLIENT_SECRET || '' },
 };
@@ -39,6 +39,10 @@ const MAX_COLLECT_DAYS = 30;
 // ═══════════════════════════════════════════════
 //  서버 즉시 시작 (Railway healthcheck 통과)
 // ═══════════════════════════════════════════════
+// persistent 볼륨 디렉토리 자동 생성
+const persistDir = process.env.RAILWAY_ENVIRONMENT ? '/app/persistent' : null;
+if (persistDir) { try { require('fs').mkdirSync(persistDir, {recursive:true}); } catch(e){} }
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  카페24 판매관리 v2.2 — http://localhost:${PORT}`);
   console.log(`  DB: 초기화 중...\n`);
