@@ -86,7 +86,7 @@ class Cafe24Client {
   }
 
   getAuthorizationUrl(scopes = []) {
-    const s = (scopes.length ? scopes : ['mall.read_order','mall.read_product','mall.read_store','mall.read_supply']).join(',');
+    const s = (scopes.length ? scopes : ['mall.read_order','mall.read_product','mall.read_store','mall.read_supply','mall.read_analytics']).join(',');
     const state = Math.random().toString(36).substring(2, 15);
     return {
       url: `https://${this.baseUrl}/api/v2/oauth/authorize?response_type=code&client_id=${this.config.clientId}&state=${state}&redirect_uri=${encodeURIComponent(this.config.redirectUri)}&scope=${encodeURIComponent(s)}`,
