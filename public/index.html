@@ -629,13 +629,13 @@ async function loadMarginAnalysis() {
     kpiEl.innerHTML =
       kpiCard('총 매출', fK(s.totalRevenue), '', '', 'DB 실데이터') +
       kpiCard('총 원가', fK(s.totalCost), '', '', '재고 엑셀 기준') +
-      kpiCard('총 마진', fK(s.totalMargin), '', '', s.marginRate + '%') +
+      kpiCard('매칭 마진', fK(s.matchedMargin || s.totalMargin), '', '', (s.matchedMarginRate || s.marginRate) + '%') +
       kpiCard('매칭률', s.matchedProducts + '/' + (s.matchedProducts + s.unmatchedProducts) + '종', '', '', '원가 매칭된 상품');
 
     var h = '';
     j.data.items.forEach(function(it, i) {
       var mrColor = it.margin_rate >= 50 ? 'var(--grn)' : it.margin_rate >= 30 ? 'var(--blu)' : it.margin_rate >= 0 ? 'var(--amb)' : 'var(--red)';
-      var matchBadge = it.match_type === 'exact' ? '<span style="color:var(--grn);font-size:10px">정확</span>' : it.match_type === 'partial' ? '<span style="color:var(--amb);font-size:10px">부분</span>' : '<span style="color:var(--t3);font-size:10px">미매칭</span>';
+      var matchBadge = it.match_type === 'code' ? '<span style="color:var(--grn);font-size:10px">코드</span>' : it.match_type === 'exact' ? '<span style="color:var(--blu);font-size:10px">정확</span>' : it.match_type === 'partial' ? '<span style="color:var(--amb);font-size:10px">부분</span>' : '<span style="color:var(--t3);font-size:10px">미매칭</span>';
       var marginStr = it.match_type !== 'none' ? fK(it.margin) : '-';
       var marginRateStr = it.match_type !== 'none' ? '<span style="color:'+mrColor+';font-weight:700">'+it.margin_rate+'%</span>' : '-';
       h += '<tr>';

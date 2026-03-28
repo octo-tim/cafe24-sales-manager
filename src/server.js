@@ -365,7 +365,7 @@ app.get('/api/inventory-mgmt/snapshot-dates', (req, res) => {
 
 
 
-/** GET /api/inventory-mgmt/margin — 상품별 마진 분석 (재고 원가 × 주문 수량 대조) */
+/** GET /api/inventory-mgmt/margin — 상품별 마진 분석 (product_no + 상품명 복합 매칭) */
 app.get('/api/inventory-mgmt/margin', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
@@ -373,31 +373,56 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
     const sd = start_date || '2026-01-01';
     const ed = end_date || new Date().toISOString().substring(0, 10);
 
-    // 주문 DB에서 상품별 매출/수량 집계
+    // 주문 DB에서 상품별 매출/수량 집계 (product_no 포함)
     const salesRows = orderDB.db.exec(`
-      SELECT product_name, SUM(quantity) as total_qty, SUM(amount) as total_revenue, COUNT(*) as order_count
+      SELECT product_name, product_no, SUM(quantity) as total_qty, SUM(amount) as total_revenue, COUNT(*) as order_count
       FROM orders WHERE order_date BETWEEN '${sd}' AND '${ed}'
       AND product_name != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED'
-      GROUP BY product_name ORDER BY SUM(amount) DESC LIMIT 50
+      GROUP BY product_name, product_no ORDER BY SUM(amount) DESC LIMIT 50
     `)[0]?.values || [];
 
-    // 재고 DB에서 원가 매핑 (상품명 부분 매칭)
-    const invRows = orderDB.db.exec('SELECT product_name, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
-    const costMap = {};
-    for (const [name, cost, sell] of invRows) {
-      costMap[name] = { cost, sell };
+    // 재고 DB에서 원가 매핑 테이블 구축 (barcode, product_code, 상품명 모두 인덱싱)
+    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
+    const costByCode = {};  // product_code/barcode → {cost, sell, name}
+    const costByName = {};  // 상품명 → {cost, sell}
+    for (const [code, barcode, name, opt, cost, sell] of invRows) {
+      const entry = { cost, sell, name, option: opt };
+      if (code) costByCode[code] = entry;
+      if (barcode && barcode !== code) costByCode[barcode] = entry;
+      // 상품명 키 (옵션 제외)
+      if (!costByName[name]) costByName[name] = entry;
     }
 
-    const items = salesRows.map(([name, qty, revenue, orders]) => {
-      // 정확 매칭 → 부분 매칭
-      let matched = costMap[name];
-      let matchType = 'exact';
+    const items = salesRows.map(([name, productNo, qty, revenue, orders]) => {
+      let matched = null;
+      let matchType = 'none';
+      let matchedName = '';
+
+      // 1순위: product_no → barcode/product_code 매칭
+      if (productNo && costByCode[productNo]) {
+        matched = costByCode[productNo];
+        matchType = 'code';
+        matchedName = matched.name;
+      }
+
+      // 2순위: 상품명 정확 매칭
+      if (!matched && costByName[name]) {
+        matched = costByName[name];
+        matchType = 'exact';
+        matchedName = matched.name;
+      }
+
+      // 3순위: 상품명 부분 매칭 (주문 상품명의 키워드가 재고 상품명에 포함)
       if (!matched) {
-        // 부분 매칭: 재고 상품명이 주문 상품명에 포함되거나 반대
-        for (const [invName, prices] of Object.entries(costMap)) {
-          if (name.includes(invName) || invName.includes(name)) {
-            matched = prices;
+        // 주문 상품명에서 핵심 키워드 추출 ([] 제거, 공백 분할)
+        const keywords = name.replace(/\[.*?\]/g, '').trim().split(/\s+/).filter(w => w.length >= 2);
+        for (const [invName, entry] of Object.entries(costByName)) {
+          // 키워드 2개 이상 매칭되면 부분 매칭
+          const matchCount = keywords.filter(kw => invName.includes(kw)).length;
+          if (matchCount >= 2 && matchCount >= keywords.length * 0.4) {
+            matched = entry;
             matchType = 'partial';
+            matchedName = invName;
             break;
           }
         }
@@ -412,6 +437,8 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
 
       return {
         product_name: name,
+        product_no: productNo || '',
+        matched_inv_name: matchedName,
         total_qty: qty,
         total_revenue: revenue,
         order_count: orders,
@@ -421,7 +448,7 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         margin: margin,
         margin_rate: marginRate,
         unit_margin: unitMargin,
-        match_type: matched ? matchType : 'none'
+        match_type: matchType
       };
     });
 
@@ -430,6 +457,9 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
     const totalCost = items.reduce((s, i) => s + i.total_cost, 0);
     const totalMargin = totalRevenue - totalCost;
     const matchedItems = items.filter(i => i.match_type !== 'none');
+    const matchedRevenue = matchedItems.reduce((s, i) => s + i.total_revenue, 0);
+    const matchedCost = matchedItems.reduce((s, i) => s + i.total_cost, 0);
+    const matchedMargin = matchedRevenue - matchedCost;
 
     res.json({
       success: true,
@@ -437,6 +467,8 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         summary: {
           totalRevenue, totalCost, totalMargin,
           marginRate: totalRevenue > 0 ? Math.round(totalMargin / totalRevenue * 1000) / 10 : 0,
+          matchedRevenue, matchedCost, matchedMargin,
+          matchedMarginRate: matchedRevenue > 0 ? Math.round(matchedMargin / matchedRevenue * 1000) / 10 : 0,
           matchedProducts: matchedItems.length,
           unmatchedProducts: items.length - matchedItems.length,
           period: { start: sd, end: ed }
