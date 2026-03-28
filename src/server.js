@@ -363,6 +363,90 @@ app.get('/api/inventory-mgmt/snapshot-dates', (req, res) => {
   catch (err) { res.json({ success: true, data: [] }); }
 });
 
+
+
+/** GET /api/inventory-mgmt/margin — 상품별 마진 분석 (재고 원가 × 주문 수량 대조) */
+app.get('/api/inventory-mgmt/margin', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const { start_date, end_date } = req.query;
+    const sd = start_date || '2026-01-01';
+    const ed = end_date || new Date().toISOString().substring(0, 10);
+
+    // 주문 DB에서 상품별 매출/수량 집계
+    const salesRows = orderDB.db.exec(`
+      SELECT product_name, SUM(quantity) as total_qty, SUM(amount) as total_revenue, COUNT(*) as order_count
+      FROM orders WHERE order_date BETWEEN '${sd}' AND '${ed}'
+      AND product_name != '' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED'
+      GROUP BY product_name ORDER BY SUM(amount) DESC LIMIT 50
+    `)[0]?.values || [];
+
+    // 재고 DB에서 원가 매핑 (상품명 부분 매칭)
+    const invRows = orderDB.db.exec('SELECT product_name, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
+    const costMap = {};
+    for (const [name, cost, sell] of invRows) {
+      costMap[name] = { cost, sell };
+    }
+
+    const items = salesRows.map(([name, qty, revenue, orders]) => {
+      // 정확 매칭 → 부분 매칭
+      let matched = costMap[name];
+      let matchType = 'exact';
+      if (!matched) {
+        // 부분 매칭: 재고 상품명이 주문 상품명에 포함되거나 반대
+        for (const [invName, prices] of Object.entries(costMap)) {
+          if (name.includes(invName) || invName.includes(name)) {
+            matched = prices;
+            matchType = 'partial';
+            break;
+          }
+        }
+      }
+
+      const costPrice = matched ? matched.cost : 0;
+      const sellPrice = matched ? matched.sell : 0;
+      const totalCost = costPrice * qty;
+      const margin = revenue - totalCost;
+      const marginRate = revenue > 0 ? Math.round(margin / revenue * 1000) / 10 : 0;
+      const unitMargin = qty > 0 ? Math.round((revenue / qty) - costPrice) : 0;
+
+      return {
+        product_name: name,
+        total_qty: qty,
+        total_revenue: revenue,
+        order_count: orders,
+        cost_price: costPrice,
+        sell_price: sellPrice,
+        total_cost: totalCost,
+        margin: margin,
+        margin_rate: marginRate,
+        unit_margin: unitMargin,
+        match_type: matched ? matchType : 'none'
+      };
+    });
+
+    // 요약
+    const totalRevenue = items.reduce((s, i) => s + i.total_revenue, 0);
+    const totalCost = items.reduce((s, i) => s + i.total_cost, 0);
+    const totalMargin = totalRevenue - totalCost;
+    const matchedItems = items.filter(i => i.match_type !== 'none');
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalRevenue, totalCost, totalMargin,
+          marginRate: totalRevenue > 0 ? Math.round(totalMargin / totalRevenue * 1000) / 10 : 0,
+          matchedProducts: matchedItems.length,
+          unmatchedProducts: items.length - matchedItems.length,
+          period: { start: sd, end: ed }
+        },
+        items
+      }
+    });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 //  D. 수집 API
 // ═══════════════════════════════════════════════
 
