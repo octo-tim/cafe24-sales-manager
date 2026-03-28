@@ -291,7 +291,7 @@ function showCollectResult(data) {
       var stText = c.status === 'success' ? '성공' : c.status === 'error' ? '실패' : '건너뜀';
       var chColor = c.channel === '카페24' ? 'var(--c24)' : c.channel === '쿠팡' ? 'var(--cpg)' : 'var(--nvr)';
       h += '<div class="ch-result"><span class="ch-badge"><span class="ic" style="background:'+chColor+'"></span>'+c.channel+'</span>';
-      h += '<span class="cnt">'+c.count+'건</span>';
+      h += '<span class="cnt">'+(c.count||0)+'건</span>';
       h += '<span class="st '+stClass+'">'+stText+'</span>';
       h += '<span style="color:var(--t3);font-size:10px;margin-left:auto">'+c.latency+'ms</span></div>';
     });
@@ -314,7 +314,7 @@ function showCollectResult(data) {
 function updateCollectMini(data) {
   var el = document.getElementById('collectMiniStatus');
   if (!el) return;
-  var total = data.totalCount;
+  var total = data.totalCount || 0;
   var time = new Date(data.timestamp).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   var chParts = data.channels.map(function(c){
     var col = c.channel === '카페24' ? '#3266ad' : c.channel === '쿠팡' ? '#e24b4a' : '#1d9e75';
@@ -391,7 +391,7 @@ function renderHistory(list) {
     var chParts = r.channels.map(function(c){
       var col = c.channel === '카페24' ? '#3266ad' : c.channel === '쿠팡' ? '#e24b4a' : '#1d9e75';
       var icon = c.status === 'success' ? '' : ' style="opacity:.4"';
-      return '<span'+icon+'><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:'+col+';vertical-align:middle;margin-right:2px"></span>'+c.count+'</span>';
+      return '<span'+icon+'><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:'+col+';vertical-align:middle;margin-right:2px"></span>'+(c.count||0)+'</span>';
     }).join('<span style="color:var(--bd);margin:0 3px">|</span>');
     var periodStr = r.period ? r.period.days + '일' : '';
     h += '<div class="hist-row">';
