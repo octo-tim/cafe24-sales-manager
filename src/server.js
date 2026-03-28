@@ -380,15 +380,16 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
     // 재고 DB에서 원가 매핑 테이블 구축 (supplier_option이 핵심 매칭 키)
     const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
     const costBySupplierOpt = {};  // 공급처옵션 → {cost, sell, name}
-    const costByCode = {};  // product_code/barcode → {cost, sell, name}
-    const costByName = {};  // 상품명 → {cost, sell}
+    const costByCode = {};  // product_code → {cost, sell, name}
+    const costByBarcode = {};  // barcode → {cost, sell, name}
     for (const [code, barcode, name, opt, supplierOpt, cost, sell] of invRows) {
       const entry = { cost, sell, name, option: opt };
-      // 1순위 매칭 키: 공급처옵션 (카페24 custom_variant_code와 매칭)
+      // 1순위: 공급처옵션 (카페24 custom_variant_code와 매칭)
       if (supplierOpt) costBySupplierOpt[supplierOpt] = entry;
+      // 2순위: product_code
       if (code) costByCode[code] = entry;
-      if (barcode && barcode !== code) costByCode[barcode] = entry;
-      if (!costByName[name]) costByName[name] = entry;
+      // 3순위: barcode (별도 매핑)
+      if (barcode) costByBarcode[barcode] = entry;
     }
 
     const items = salesRows.map((salesRow) => {
@@ -404,34 +405,25 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         matchedName = matched.name;
       }
 
-      // 2순위: product_no → barcode/product_code 매칭
+      // 2순위: product_no → product_code 매칭
       if (!matched && productNo && costByCode[productNo]) {
         matched = costByCode[productNo];
         matchType = 'code';
         matchedName = matched.name;
       }
 
-      // 3순위: 상품명 정확 매칭
-      if (!matched && costByName[name]) {
-        matched = costByName[name];
-        matchType = 'exact';
+      // 3순위: variant_code → barcode 매칭
+      if (!matched && variantCode && costByBarcode[variantCode]) {
+        matched = costByBarcode[variantCode];
+        matchType = 'barcode';
         matchedName = matched.name;
       }
 
-      // 3순위: 상품명 부분 매칭 (주문 상품명의 키워드가 재고 상품명에 포함)
-      if (!matched) {
-        // 주문 상품명에서 핵심 키워드 추출 ([] 제거, 공백 분할)
-        const keywords = name.replace(/\[.*?\]/g, '').trim().split(/\s+/).filter(w => w.length >= 2);
-        for (const [invName, entry] of Object.entries(costByName)) {
-          // 키워드 2개 이상 매칭되면 부분 매칭
-          const matchCount = keywords.filter(kw => invName.includes(kw)).length;
-          if (matchCount >= 3 && matchCount >= keywords.length * 0.6) {
-            matched = entry;
-            matchType = 'partial';
-            matchedName = invName;
-            break;
-          }
-        }
+      // 4순위: product_no → barcode 매칭
+      if (!matched && productNo && costByBarcode[productNo]) {
+        matched = costByBarcode[productNo];
+        matchType = 'barcode';
+        matchedName = matched.name;
       }
 
       const costPrice = matched ? matched.cost : 0;
