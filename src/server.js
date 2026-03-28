@@ -251,6 +251,93 @@ app.get('/api/db/stats', (req, res) => {
 
 
 // ═══════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════
+//  C2. 재고관리 API (/api/inventory-mgmt/*)
+// ═══════════════════════════════════════════════
+
+const XLSX = require('xlsx');
+
+/** POST /api/inventory-mgmt/upload — 재고 엑셀 업로드 */
+app.post('/api/inventory-mgmt/upload', require('multer')({ storage: require('multer').memoryStorage() }).single('file'), (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  if (!req.file) return res.status(400).json({ success: false, error: '파일 없음' });
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws);
+
+    const items = rows.map(r => ({
+      product_code: String(r['상품코드'] || r['바코드'] || ''),
+      barcode: String(r['바코드'] || ''),
+      product_name: String(r['상품명'] || ''),
+      option_name: String(r['옵션'] || ''),
+      category: String(r['카테고리'] || ''),
+      supplier: String(r['공급처'] || ''),
+      cost_price: parseFloat(r['원가'] || 0),
+      sell_price: parseFloat(r['판매가'] || 0),
+      stock_qty: parseInt(r['가용재고'] || r['정상+창고 가용재고'] || 0),
+      defect_qty: parseInt(r['불량재고'] || 0),
+    })).filter(it => it.product_name);
+
+    const result = orderDB.saveInventory(items);
+    res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/inventory-mgmt/list — 재고 목록 */
+app.get('/api/inventory-mgmt/list', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const items = orderDB.getInventory({
+      category: req.query.category,
+      search: req.query.search,
+      stockOnly: req.query.stock_only === 'true',
+      limit: parseInt(req.query.limit) || 200,
+    });
+    res.json({ success: true, count: items.length, data: items });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/inventory-mgmt/stats — 재고 통계 */
+app.get('/api/inventory-mgmt/stats', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try { res.json({ success: true, data: orderDB.getInventoryStats() }); }
+  catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** POST /api/inventory-mgmt/snapshot — 날짜별 기초재고 스냅샷 생성 */
+app.post('/api/inventory-mgmt/snapshot', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const date = req.body.date || new Date().toISOString().substring(0, 10);
+    const result = orderDB.createDailySnapshot(date);
+    res.json({ success: true, data: result });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/inventory-mgmt/snapshot/:date — 스냅샷 조회 */
+app.get('/api/inventory-mgmt/snapshot/:date', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const items = orderDB.getSnapshot(req.params.date, {
+      search: req.query.search,
+      shippedOnly: req.query.shipped_only === 'true',
+      limit: parseInt(req.query.limit) || 200,
+    });
+    const summary = orderDB.getSnapshotSummary(req.params.date);
+    res.json({ success: true, data: { summary, items } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/inventory-mgmt/snapshot-dates — 스냅샷 날짜 목록 */
+app.get('/api/inventory-mgmt/snapshot-dates', (req, res) => {
+  if (!dbReady) return res.json({ success: false, data: [] });
+  try { res.json({ success: true, data: orderDB.getSnapshotDates() }); }
+  catch (err) { res.json({ success: true, data: [] }); }
+});
+
 //  D. 수집 API
 // ═══════════════════════════════════════════════
 
