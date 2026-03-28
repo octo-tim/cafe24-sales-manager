@@ -57,6 +57,9 @@ class OrderDB {
     // ★ 기초재고 스냅샷 (날짜별)
     this.db.run(`CREATE TABLE IF NOT EXISTS inventory_snapshot (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, product_code TEXT NOT NULL, product_name TEXT NOT NULL, option_name TEXT DEFAULT '', base_stock INTEGER DEFAULT 0, shipped INTEGER DEFAULT 0, expected_stock INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')), UNIQUE(date, product_code, option_name))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_snap_date ON inventory_snapshot(date)`);
+    // 마이그레이션: supplier, category 컬럼 추가
+    try { this.db.run('ALTER TABLE inventory_snapshot ADD COLUMN supplier TEXT DEFAULT ""'); } catch(e) {}
+    try { this.db.run('ALTER TABLE inventory_snapshot ADD COLUMN category TEXT DEFAULT ""'); } catch(e) {}
     // 토큰 저장
     this.db.run(`CREATE TABLE IF NOT EXISTS token_store (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))`);
   }
@@ -127,7 +130,7 @@ class OrderDB {
     const rows2 = this.db.exec(`SELECT product_name, SUM(quantity) FROM orders WHERE order_date = '${date}' AND status NOT LIKE 'C%' AND status NOT LIKE 'R%' AND status != 'CANCELED' GROUP BY product_name`)[0]?.values || [];
     for (const [name, qty] of rows2) { orderQtyByName[name] = qty; }
 
-    const stmt = this.db.prepare('INSERT OR REPLACE INTO inventory_snapshot (date, product_code, product_name, option_name, base_stock, shipped, expected_stock) VALUES (?,?,?,?,?,?,?)');
+    const stmt = this.db.prepare('INSERT OR REPLACE INTO inventory_snapshot (date, product_code, product_name, option_name, base_stock, shipped, expected_stock, supplier, category) VALUES (?,?,?,?,?,?,?,?,?)');
     let created = 0;
 
     for (const item of inventory) {
@@ -136,7 +139,7 @@ class OrderDB {
       const shipped = (item.supplier_option && orderQtyByVariant[item.supplier_option]) || orderQtyByName[item.product_name] || 0;
       const expected = baseStock - shipped;
 
-      stmt.run([date, item.product_code, item.product_name, item.option_name, baseStock, shipped, expected]);
+      stmt.run([date, item.product_code, item.product_name, item.option_name, baseStock, shipped, expected, item.supplier||'', item.category||'']);
       created++;
     }
     stmt.free();
@@ -146,21 +149,31 @@ class OrderDB {
 
   /** 날짜별 스냅샷 조회 */
   getSnapshot(date, opts = {}) {
-    let sql = `SELECT product_code, product_name, option_name, base_stock, shipped, expected_stock FROM inventory_snapshot WHERE date = '${date}'`;
+    let sql = `SELECT product_code, product_name, option_name, base_stock, shipped, expected_stock, supplier, category FROM inventory_snapshot WHERE date = '${date}'`;
     if (opts.search) sql += ` AND (product_name LIKE '%${opts.search}%' OR product_code LIKE '%${opts.search}%')`;
     if (opts.shippedOnly) sql += ' AND shipped > 0';
+    if (opts.supplier) sql += ` AND supplier = '${opts.supplier}'`;
+    if (opts.category) sql += ` AND category = '${opts.category}'`;
     sql += ' ORDER BY shipped DESC, base_stock DESC';
     if (opts.limit) sql += ` LIMIT ${opts.limit}`;
     return this.db.exec(sql)[0]?.values?.map(r => ({product_code:r[0],product_name:r[1],option_name:r[2],base_stock:r[3],shipped:r[4],expected_stock:r[5]})) || [];
   }
 
   /** 스냅샷 요약 */
-  getSnapshotSummary(date) {
-    const r = this.db.exec(`SELECT COUNT(*), SUM(base_stock), SUM(shipped), SUM(expected_stock), COUNT(CASE WHEN shipped > 0 THEN 1 END) FROM inventory_snapshot WHERE date = '${date}'`)[0]?.values?.[0] || [0,0,0,0,0];
+  getSnapshotSummary(date, opts = {}) {
+    let where = `date = '${date}'`;
+    if (opts.supplier) where += ` AND supplier = '${opts.supplier}'`;
+    if (opts.category) where += ` AND category = '${opts.category}'`;
+    const r = this.db.exec(`SELECT COUNT(*), SUM(base_stock), SUM(shipped), SUM(expected_stock), COUNT(CASE WHEN shipped > 0 THEN 1 END) FROM inventory_snapshot WHERE ${where}`)[0]?.values?.[0] || [0,0,0,0,0];
     return { date, totalProducts: r[0], totalBaseStock: r[1], totalShipped: r[2], totalExpected: r[3], movedProducts: r[4] };
   }
 
   /** 스냅샷이 있는 날짜 목록 */
+  getSnapshotFilters(date) {
+    const suppliers = this.db.exec(`SELECT DISTINCT supplier FROM inventory_snapshot WHERE date = '${date}' AND supplier != '' ORDER BY supplier`)[0]?.values?.map(r=>r[0]) || [];
+    const categories = this.db.exec(`SELECT DISTINCT category FROM inventory_snapshot WHERE date = '${date}' AND category != '' ORDER BY category`)[0]?.values?.map(r=>r[0]) || [];
+    return { suppliers, categories };
+  }
   getSnapshotDates() {
     return this.db.exec('SELECT DISTINCT date FROM inventory_snapshot ORDER BY date DESC LIMIT 30')[0]?.values?.map(r => r[0]) || [];
   }

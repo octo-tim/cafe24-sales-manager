@@ -200,10 +200,14 @@ canvas{max-height:300px}
   <div class="cd" id="invSnapshotPanel">
     <div class="ct">날짜별 재고 현황<div style="display:flex;gap:6px;align-items:center"><input type="date" id="snapDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none"><button class="collect-btn" onclick="loadSnapshot()" style="padding:5px 12px;font-size:11px">조회</button><label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="shippedOnly" onchange="loadSnapshot()"> 출고 있는 상품만</label></div></div>
     <div id="snapSummary" style="margin-bottom:10px"></div>
-    <div style="margin-bottom:8px"><input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadSnapshot()" style="width:300px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none"></div>
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadSnapshot()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+      <select id="invSupplier" onchange="loadSnapshot()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:120px"><option value="">전체 공급처</option></select>
+      <select id="invCategory" onchange="loadSnapshot()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px"><option value="">전체 카테고리</option></select>
+    </div>
     <div style="max-height:500px;overflow-y:auto">
       <table>
-        <thead><tr><th>상품코드</th><th>상품명</th><th>옵션</th><th style="text-align:right">기초재고</th><th style="text-align:right;color:var(--red)">출고(주문)</th><th style="text-align:right;color:var(--grn)">예상재고</th></tr></thead>
+        <thead><tr><th>상품코드</th><th>상품명</th><th>옵션</th><th>공급처</th><th>카테고리</th><th style="text-align:right">기초재고</th><th style="text-align:right;color:var(--red)">출고(주문)</th><th style="text-align:right;color:var(--grn)">예상재고</th></tr></thead>
         <tbody id="snapBody"></tbody>
       </table>
     </div>
@@ -645,6 +649,8 @@ async function loadInventory() {
   if (sd && !sd.value) sd.value = todayStr();
   // 재고 목록
   loadInventoryList();
+  // 필터 목록 로드
+  loadSnapshotFilters();
   // 스냅샷 로드
   loadSnapshot();
 }
@@ -691,28 +697,53 @@ async function createSnapshot() {
   } catch(e) { alert('오류: ' + e.message); }
 }
 
+async function loadSnapshotFilters() {
+  var date = document.getElementById('snapDate')?.value || todayStr();
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/snapshot-filters/' + date);
+    var j = await r.json();
+    if (j.success && j.data) {
+      var supEl = document.getElementById('invSupplier');
+      var catEl = document.getElementById('invCategory');
+      if (supEl) {
+        var curSup = supEl.value;
+        supEl.innerHTML = '<option value="">전체 공급처</option>' + j.data.suppliers.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
+        if (curSup) supEl.value = curSup;
+      }
+      if (catEl) {
+        var curCat = catEl.value;
+        catEl.innerHTML = '<option value="">전체 카테고리</option>' + j.data.categories.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+        if (curCat) catEl.value = curCat;
+      }
+    }
+  } catch(e) {}
+}
 async function loadSnapshot() {
   var date = document.getElementById('snapDate')?.value || todayStr();
   var search = document.getElementById('invSearch')?.value || '';
   var shippedOnly = document.getElementById('shippedOnly')?.checked ? 'true' : '';
+  var supplier = document.getElementById('invSupplier')?.value || '';
+  var category = document.getElementById('invCategory')?.value || '';
   try {
     var url = API_BASE + '/api/inventory-mgmt/snapshot/' + date + '?limit=200';
     if (search) url += '&search=' + encodeURIComponent(search);
     if (shippedOnly) url += '&shipped_only=true';
+    if (supplier) url += '&supplier=' + encodeURIComponent(supplier);
+    if (category) url += '&category=' + encodeURIComponent(category);
     var r = await fetch(url);
     var j = await r.json();
     var el = document.getElementById('snapBody');
     var sm = document.getElementById('snapSummary');
     if (!el) return;
     if (!j.success || !j.data?.items?.length) {
-      el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 중...</td></tr>';
+      el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 중...</td></tr>';
       // 자동 스냅샷 생성
       try {
         var sr = await fetch(API_BASE + '/api/inventory-mgmt/snapshot', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:date})});
         var sj = await sr.json();
         if (sj.success && sj.data.created > 0) { loadSnapshot(); return; }
-        else { el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 먼저 업로드하세요</td></tr>'; }
-      } catch(ee) { el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 실패</td></tr>'; }
+        else { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 먼저 업로드하세요</td></tr>'; }
+      } catch(ee) { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 실패</td></tr>'; }
       if (sm) sm.innerHTML = '';
       return;
     }
@@ -724,7 +755,7 @@ async function loadSnapshot() {
     var h = '';
     j.data.items.forEach(function(it) {
       var stockColor = it.expected_stock <= 0 ? 'var(--red)' : it.expected_stock < 10 ? 'var(--amb)' : 'var(--grn)';
-      h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td>';
+      h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td><td style="color:var(--t2);font-size:11px">'+(it.supplier||'')+'</td><td style="color:var(--t2);font-size:11px">'+(it.category||'')+'</td>';
       h += '<td style="text-align:right">'+fN(it.base_stock)+'</td>';
       h += '<td style="text-align:right;color:var(--red);font-weight:'+(it.shipped>0?'700':'400')+'">'+(it.shipped>0?'-'+fN(it.shipped):'0')+'</td>';
       h += '<td style="text-align:right;font-weight:700;color:'+stockColor+'">'+fN(it.expected_stock)+'</td></tr>';

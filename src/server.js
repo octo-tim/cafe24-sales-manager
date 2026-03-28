@@ -352,14 +352,24 @@ app.post('/api/inventory-mgmt/snapshot', (req, res) => {
 app.get('/api/inventory-mgmt/snapshot/:date', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
-    const items = orderDB.getSnapshot(req.params.date, {
+    const opts = {
       search: req.query.search,
       shippedOnly: req.query.shipped_only === 'true',
+      supplier: req.query.supplier || '',
+      category: req.query.category || '',
       limit: parseInt(req.query.limit) || 200,
-    });
-    const summary = orderDB.getSnapshotSummary(req.params.date);
+    };
+    const items = orderDB.getSnapshot(req.params.date, opts);
+    const summary = orderDB.getSnapshotSummary(req.params.date, opts);
     res.json({ success: true, data: { summary, items } });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/inventory-mgmt/snapshot-filters/:date — 공급처/카테고리 필터 목록 */
+app.get('/api/inventory-mgmt/snapshot-filters/:date', (req, res) => {
+  if (!dbReady) return res.json({ success: false, data: { suppliers: [], categories: [] } });
+  try { res.json({ success: true, data: orderDB.getSnapshotFilters(req.params.date) }); }
+  catch (err) { res.json({ success: true, data: { suppliers: [], categories: [] } }); }
 });
 
 /** GET /api/inventory-mgmt/snapshot-dates — 스냅샷 날짜 목록 */
