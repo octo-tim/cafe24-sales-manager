@@ -425,7 +425,7 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         for (const [invName, entry] of Object.entries(costByName)) {
           // 키워드 2개 이상 매칭되면 부분 매칭
           const matchCount = keywords.filter(kw => invName.includes(kw)).length;
-          if (matchCount >= 2 && matchCount >= keywords.length * 0.4) {
+          if (matchCount >= 3 && matchCount >= keywords.length * 0.6) {
             matched = entry;
             matchType = 'partial';
             matchedName = invName;
