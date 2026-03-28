@@ -25,10 +25,8 @@ const coupang = config.coupang.accessKey ? new CoupangClient(config.coupang) : n
 const naver = config.naver.clientId ? new NaverCommerceClient(config.naver) : null;
 const multiChannel = new MultiChannelService({ cafe24Client: cafe24, coupangClient: coupang, naverClient: naver });
 
-// DB는 비동기 초기화 — 서버 시작을 차단하지 않음
 const orderDB = new OrderDB();
 let dbReady = false;
-orderDB.ensureReady().then(() => { dbReady = true; cafe24.setDB(orderDB); cafe24.autoRecover().then(ok => { if(ok) console.log("[Boot] DB+토큰 복구 성공"); }).catch(e=>console.error("[Boot]",e.message)); console.log('[DB] 준비 완료'); }).catch(e => console.error('[DB] 초기화 실패:', e.message));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,13 +39,32 @@ const MAX_COLLECT_DAYS = 30;
 // ═══════════════════════════════════════════════
 //  서버 즉시 시작 (Railway healthcheck 통과)
 // ═══════════════════════════════════════════════
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  카페24 판매관리 v2.2 — http://localhost:${PORT}`);
-  console.log(`  카페24: ${cafe24.tokens?.access_token ? '인증됨' : '미인증'} | 쿠팡: ${coupang ? '설정됨' : '미설정'} | 네이버: ${naver ? '설정됨' : '미설정'}`);
   console.log(`  DB: 초기화 중...\n`);
 });
 
-// 카페24 토큰 복구 (비동기)
+// ═══════════════════════════════════════════════
+//  부팅 시퀀스: DB → 토큰 복구 → 초기 수집
+// ═══════════════════════════════════════════════
+orderDB.ensureReady().then(async () => {
+  dbReady = true;
+  cafe24.setDB(orderDB);
+  console.log('[Boot] DB 준비 완료');
+
+  // 토큰 자동 복구
+  const authOk = await cafe24.autoRecover().catch(e => { console.error('[Boot] 토큰 복구 실패:', e.message); return false; });
+  console.log(`[Boot] 카페24: ${authOk ? '인증됨' : '미인증'} | 쿠팡: ${coupang ? '설정됨' : '미설정'} | 네이버: ${naver ? '설정됨' : '미설정'}`);
+
+  // 인증 성공 시 서버 시작 직후 1회 수집 (최근 1일)
+  if (authOk || coupang || naver) {
+    console.log('[Boot] 초기 주문 수집 시작 (최근 1일)...');
+    const result = await collector.collectAll('auto-boot', { days: 1 });
+    if (result.success) {
+      console.log(`[Boot] 초기 수집 완료: ${result.data.totalCount}건 수집, ${result.data.totalSaved}건 DB 저장`);
+    }
+  }
+}).catch(e => console.error('[Boot] DB 초기화 실패:', e.message));
 
 
 // ═══════════════════════════════════════════════
@@ -56,6 +73,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
 const collector = {
   isRunning: false, lastRun: null,
+
+  /** 수집 가능한 채널이 하나라도 있는지 확인 */
+  hasAnyChannel() {
+    return !!(cafe24.tokens?.access_token || coupang || naver);
+  },
 
   async collectChannel(channelName, fetchFn) {
     const start = Date.now();
@@ -76,6 +98,13 @@ const collector = {
 
   async collectAll(trigger = 'auto', { days = 1, startDate, endDate } = {}) {
     if (this.isRunning) return { success: false, error: '수집이 이미 진행 중입니다.' };
+
+    // 자동 수집 시 인증된 채널이 없으면 건너뜀
+    if (trigger.startsWith('auto') && !this.hasAnyChannel()) {
+      console.log('[Collector] 인증된 채널 없음 — 수집 건너뜀');
+      return { success: false, error: '인증된 채널 없음' };
+    }
+
     this.isRunning = true;
     const startTime = Date.now();
     const now = new Date();
@@ -112,7 +141,7 @@ const collector = {
     if (dbReady) try { orderDB.saveCollectHistory(record); } catch(e) {}
     this.lastRun = record;
     this.isRunning = false;
-    console.log(`[Collector] 완료: ${record.totalCount}건 (${record.duration}ms)`);
+    console.log(`[Collector] 완료: ${record.totalCount}건 수집 / ${record.totalSaved}건 저장 (${record.duration}ms)`);
     return { success: true, data: record };
   },
 
@@ -142,6 +171,11 @@ app.get('/auth/callback', async (req, res) => {
   try {
     const tokens = await cafe24.getAccessToken(code);
     console.log('[Auth] 성공 — CAFE24_REFRESH_TOKEN=' + tokens.refresh_token);
+    // 인증 직후 자동 수집 트리거 (비동기, 응답 차단 안함)
+    setTimeout(() => {
+      console.log('[Auth] 인증 후 자동 수집 시작 (최근 7일)...');
+      collector.collectAll('auto-auth', { days: 7 });
+    }, 2000);
     res.redirect('/?auth=success');
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -245,16 +279,32 @@ app.get('/api/config/status', (req, res) => {
 
 
 // ═══════════════════════════════════════════════
-//  E. 스케줄러
+//  E. 30분 자동 수집 스케줄러
 // ═══════════════════════════════════════════════
 
-cron.schedule('*/30 * * * *', async () => { console.log('[Cron] 30분 수집'); await collector.collectAll('auto', { days: 1 }); });
+cron.schedule('*/30 * * * *', async () => {
+  if (!dbReady) { console.log('[Cron] DB 미준비 — 건너뜀'); return; }
+  if (!collector.hasAnyChannel()) { console.log('[Cron] 인증된 채널 없음 — 건너뜀'); return; }
+  console.log('[Cron] 30분 자동 수집 시작...');
+  const result = await collector.collectAll('auto', { days: 1 });
+  if (result.success) {
+    console.log(`[Cron] 자동 수집 완료: ${result.data.totalCount}건 / ${result.data.totalSaved}건 저장`);
+  } else {
+    console.log('[Cron] 자동 수집 실패:', result.error);
+  }
+});
+
+// 매 시간 매출 로그
 cron.schedule('0 * * * *', () => {
   if (!dbReady) return;
   try {
-    const now = new Date(); const s = new Date(now.getTime()-86400000).toISOString().substring(0,10); const e = now.toISOString().substring(0,10);
-    const sm = orderDB.getSalesSummary(s, e); const t = sm.reduce((a,r)=>a+r.total_amount,0);
-    console.log(`[Cron] 일간: ${Math.round(t).toLocaleString()}원`);
+    const now = new Date();
+    const s = new Date(now.getTime()-86400000).toISOString().substring(0,10);
+    const e = now.toISOString().substring(0,10);
+    const sm = orderDB.getSalesSummary(s, e);
+    const t = sm.reduce((a,r)=>a+r.total_amount,0);
+    const c = sm.reduce((a,r)=>a+r.order_count,0);
+    console.log(`[Cron] 일간 DB 매출: ${Math.round(t).toLocaleString()}원 (${c}건)`);
   } catch(e) {}
 });
 
