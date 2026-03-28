@@ -349,7 +349,7 @@ function renderCollectorKpi(st) {
     kpiCard('수집 주기', st.scheduleDesc, '', '', '자동 실행') +
     kpiCard('마지막 수집', lastTime, '', '', lastCount) +
     kpiCard('활성 채널', connectedCh + '/3', '', '', Object.entries(st.channels).filter(function(e){return e[1].configured}).map(function(e){return e[0]}).join('·') || '없음') +
-    kpiCard('수집 이력', st.historyCount + '건', '', '', '최근 50건 보관');
+    kpiCard('수집 이력', (st.db && st.db.collectHistory || 0) + '건', '', '', '최근 50건 보관');
 }
 
 async function loadCollectorHistory() {
