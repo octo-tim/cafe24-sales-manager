@@ -210,13 +210,37 @@ canvas{max-height:300px}
     </div></div>
     <div id="stockSummary" style="margin-bottom:10px"></div>
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadStockStatus()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-      <select id="invSupplier" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:120px"><option value="">전체 공급처</option></select>
-      <select id="invCategory" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px"><option value="">전체 카테고리</option></select>
+      <input type="text" id="invSearch" placeholder="상품명 / 코드 검색" oninput="loadStockStatus()" style="width:180px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+      <select id="invSupplier" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px"><option value="">전체 공급처</option></select>
+      <select id="invCategory" onchange="loadStockStatus()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:80px"><option value="">전체 카테고리</option></select>
+      <select id="invSort" onchange="renderStockTable()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:100px">
+        <option value="shipped_desc">출고 많은순</option>
+        <option value="shipped_asc">출고 적은순</option>
+        <option value="expected_asc">예상재고 적은순</option>
+        <option value="expected_desc">예상재고 많은순</option>
+        <option value="base_desc">기초재고 많은순</option>
+        <option value="base_asc">기초재고 적은순</option>
+      </select>
+      <span style="color:var(--t3);font-size:10px">|</span>
+      <span style="font-size:11px;color:var(--t2)">수량필터:</span>
+      <select id="invQtyField" onchange="renderStockTable()" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+        <option value="">없음</option>
+        <option value="expected_stock">예상재고</option>
+        <option value="shipped">출고</option>
+        <option value="base_stock">기초재고</option>
+      </select>
+      <select id="invQtyOp" onchange="renderStockTable()" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;min-width:50px">
+        <option value="lte">이하</option>
+        <option value="gte">이상</option>
+        <option value="eq">같음</option>
+        <option value="lt">미만</option>
+        <option value="gt">초과</option>
+      </select>
+      <input type="number" id="invQtyVal" value="0" onchange="renderStockTable()" style="width:70px;padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;text-align:right">
     </div>
     <div style="max-height:500px;overflow-y:auto">
       <table>
-        <thead><tr><th>상품코드</th><th>상품명</th><th>옵션</th><th>공급처</th><th>카테고리</th><th style="text-align:right">기초재고</th><th style="text-align:right;color:var(--red)">출고(주문)</th><th style="text-align:right;color:var(--grn)">예상재고</th></tr></thead>
+        <thead><tr><th>상품코드</th><th>상품명</th><th>옵션</th><th>공급처</th><th>카테고리</th><th style="text-align:right;cursor:pointer" onclick="setSortAndRender('base')">기초재고 ↕</th><th style="text-align:right;color:var(--red);cursor:pointer" onclick="setSortAndRender('shipped')">출고(주문) ↕</th><th style="text-align:right;color:var(--grn);cursor:pointer" onclick="setSortAndRender('expected')">예상재고 ↕</th></tr></thead>
         <tbody id="stockBody"></tbody>
       </table>
     </div>
