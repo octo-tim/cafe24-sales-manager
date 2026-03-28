@@ -1097,16 +1097,26 @@ function renderStockTable() {
 
 
 
+function _anaFetchCustom(cat,ep,sd,ed,extra){
+  var url=API_BASE+'/api/analytics/'+cat+'/'+ep+'?start_date='+sd+'&end_date='+ed+'&limit=100';
+  if(extra)url+='&'+extra;
+  return fetch(url).then(function(r){return r.json()}).then(function(j){
+    if(!j.success)return null;var d=j.data;if(!d)return null;
+    if(d.error)return null;if(Array.isArray(d))return d;
+    var keys=Object.keys(d);for(var i=0;i<keys.length;i++){if(Array.isArray(d[keys[i]]))return d[keys[i]]}
+    return null;
+  }).catch(function(){return null});
+}
 function loadSalesAnalytics(){
   var sd=document.getElementById('salesStart')?.value||'2026-03-01';
   var ed=document.getElementById('salesEnd')?.value||todayStr();
   // 시간대별 매출
-  _anaFetch('sales','times').then(function(d){
+  _anaFetchCustom('sales','times',sd,ed).then(function(d){
     if(!Array.isArray(d))return;
     makeChart('salesHourlyAna',{type:'bar',data:{labels:d.map(function(x){return x.hour+'시'}),datasets:[{label:'매출액',data:d.map(function(x){return parseInt(x.order_amount||0)}),backgroundColor:'#3b82f680',borderColor:'#3b82f6',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fW(v)}}}}}});
   });
   // 결제수단별 매출
-  _anaFetch('sales','paymethods').then(function(d){
+  _anaFetchCustom('sales','paymethods',sd,ed).then(function(d){
     var el=document.getElementById('salesPayBody');if(!el||!Array.isArray(d))return;
     var payNames={'card':'카드','cash':'무통장','point':'포인트','tcash':'간편결제','deposit':'예치금','phone':'핸드폰','etc':'기타'};
     var total=d.reduce(function(s,x){return s+parseInt(x.order_amount||0)},0);
