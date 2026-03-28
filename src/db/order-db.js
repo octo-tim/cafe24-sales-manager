@@ -50,7 +50,7 @@ class OrderDB {
     // 일별 요약
     this.db.run(`CREATE TABLE IF NOT EXISTS daily_summary (date TEXT NOT NULL, channel TEXT NOT NULL, order_count INTEGER DEFAULT 0, total_amount REAL DEFAULT 0, avg_order REAL DEFAULT 0, updated_at TEXT DEFAULT (datetime('now')), PRIMARY KEY(date, channel))`);
     // ★ 재고 마스터 (엑셀 업로드)
-    this.db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, product_code TEXT NOT NULL, barcode TEXT DEFAULT '', product_name TEXT NOT NULL, option_name TEXT DEFAULT '', category TEXT DEFAULT '', supplier TEXT DEFAULT '', supplier_option TEXT DEFAULT '', cost_price REAL DEFAULT 0, sell_price REAL DEFAULT 0, stock_qty INTEGER DEFAULT 0, defect_qty INTEGER DEFAULT 0, uploaded_at TEXT DEFAULT (datetime('now')), UNIQUE(product_code, option_name))`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, product_code TEXT NOT NULL, barcode TEXT DEFAULT '', product_name TEXT NOT NULL, option_name TEXT DEFAULT '', category TEXT DEFAULT '', supplier TEXT DEFAULT '', supplier_option TEXT DEFAULT '', cost_price REAL DEFAULT 0, sell_price REAL DEFAULT 0, stock_qty INTEGER DEFAULT 0, defect_qty INTEGER DEFAULT 0, uploaded_at TEXT DEFAULT (datetime('now')), UNIQUE(product_name, option_name))`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_code ON inventory(product_code)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_name ON inventory(product_name)`);
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_inv_supplier_opt ON inventory(supplier_option)`);
