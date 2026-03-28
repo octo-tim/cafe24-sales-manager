@@ -31,7 +31,7 @@ let dbReady = false;
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const MAX_COLLECT_DAYS = 30;
@@ -286,6 +286,31 @@ app.post('/api/inventory-mgmt/upload', require('multer')({ storage: require('mul
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+
+/** POST /api/inventory-mgmt/upload-base64 — base64 재고 업로드 */
+app.post("/api/inventory-mgmt/upload-base64", (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: "DB 미준비" });
+  try {
+    const buf = Buffer.from(req.body.data, "base64");
+    const wb = XLSX.read(buf, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws);
+    const items = rows.map(r => ({
+      product_code: String(r["상품코드"] || r["바코드"] || ""),
+      barcode: String(r["바코드"] || ""),
+      product_name: String(r["상품명"] || ""),
+      option_name: String(r["옵션"] || ""),
+      category: String(r["카테고리"] || ""),
+      supplier: String(r["공급처"] || ""),
+      cost_price: parseFloat(r["원가"] || 0),
+      sell_price: parseFloat(r["판매가"] || 0),
+      stock_qty: parseInt(r["가용재고"] || r["정상+창고 가용재고"] || 0),
+      defect_qty: parseInt(r["불량재고"] || 0),
+    })).filter(it => it.product_name);
+    const result = orderDB.saveInventory(items);
+    res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
 /** GET /api/inventory-mgmt/list — 재고 목록 */
 app.get('/api/inventory-mgmt/list', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
