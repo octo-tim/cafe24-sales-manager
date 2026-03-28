@@ -730,7 +730,7 @@ async function loadInventoryList() {
 async function loadStockFilters() {
   var date = document.getElementById('stockEndDate')?.value || todayStr();
   try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters' + date);
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters');
     var j = await r.json();
     if (j.success && j.data) {
       var supEl = document.getElementById('invSupplier');
