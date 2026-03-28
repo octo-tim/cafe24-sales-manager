@@ -184,11 +184,8 @@ canvas{max-height:300px}
   <div class="g4" id="salesKpi"></div>
   <div id="salesChannelCards" class="g3" style="margin-bottom:12px"></div>
   <div class="cd"><div class="ct">일별 매출 추이<span id="salesChartLabel" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div><canvas id="dailySalesChart"></canvas><div class="legend" id="salesLegend"></div></div>
-  <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 주문 패턴</div><canvas id="hourlyChart"></canvas></div></div>
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">시간대별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><canvas id="salesHourlyAna"></canvas></div>
-    <div class="cd"><div class="ct">결제수단별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="salesPayBody" style="max-height:300px;overflow-y:auto"></div></div>
-  </div>
+  <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><canvas id="salesHourlyAna"></canvas></div></div>
+  <div class="cd" style="margin-bottom:16px"><div class="ct">결제수단별 매출 <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="salesPayBody" style="max-height:300px;overflow-y:auto"></div></div>
   <div class="cd" id="salesDailyTable"><div class="ct">일별 매출/이익 상세</div><div style="max-height:400px;overflow-y:auto"><table><thead><tr><th>날짜</th><th>카페24</th><th>쿠팡</th><th>네이버</th><th style="font-weight:700">합계</th><th style="color:var(--amb)">원가</th><th style="color:var(--grn)">이익</th><th style="color:var(--grn)">이익률</th></tr></thead><tbody id="salesDailyBody"></tbody></table></div></div>
 
 </div>
@@ -207,10 +204,6 @@ canvas{max-height:300px}
   </div>
   <div class="g4" id="prodKpi" style="margin-bottom:16px"></div>
   <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">상품별 매출 TOP <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="prodAnaSalesBody" style="max-height:300px;overflow-y:auto"></div></div>
-    <div class="cd"><div class="ct">상품별 조회수 TOP <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="prodAnaViewBody" style="max-height:300px;overflow-y:auto"></div></div>
-  </div>
-  <div class="g2" style="margin-bottom:16px">
     <div class="cd">
       <div class="ct">카테고리별 매출 순위</div>
       <div id="catRankBody" style="max-height:350px;overflow-y:auto"></div>
@@ -220,6 +213,7 @@ canvas{max-height:300px}
       <div id="catProfitBody" style="max-height:350px;overflow-y:auto"></div>
     </div>
   </div>
+  <div class="cd" style="margin-bottom:16px"><div class="ct">상품별 조회수 TOP <span style="font-size:10px;color:var(--t3);font-weight:400">(접속통계)</span></div><div id="prodAnaViewBody" style="max-height:350px;overflow-y:auto"></div></div>
   <div class="cd">
     <div class="ct">상품별 매출·이익 순위
       <div style="display:flex;gap:6px;align-items:center">
@@ -1134,17 +1128,6 @@ function loadProductAnalytics(){
   var ed=document.getElementById('prodEnd')?.value||'';
   if(!sd){var d=new Date();d.setDate(d.getDate()-30);sd=d.toISOString().substring(0,10)}
   if(!ed)ed=todayStr();
-  // 상품별 매출 TOP
-  fetch(API_BASE+'/api/analytics/products/sales?start_date='+sd+'&end_date='+ed+'&limit=100&sort=order_amount&order=desc').then(function(r){return r.json()}).then(function(j){
-    var el=document.getElementById('prodAnaSalesBody');if(!el)return;
-    var d=j.success?j.data:null;if(!d)return;
-    var arr=Array.isArray(d)?d:d[Object.keys(d).find(function(k){return Array.isArray(d[k])})]||[];
-    var rows=[];
-    arr.slice(0,20).forEach(function(x,i){
-      rows.push([(i+1)+'',x.product_name||'-',fN(x.order_count||0),fN(x.order_product_count||0),fW(parseInt(x.order_amount||0))]);
-    });
-    el.innerHTML=_at([['#','center'],['상품명','left'],['주문수','right'],['판매수량','right'],['매출액','right']],rows);
-  }).catch(function(){});
   // 상품별 조회수 TOP
   fetch(API_BASE+'/api/analytics/products/view?start_date='+sd+'&end_date='+ed+'&limit=100').then(function(r){return r.json()}).then(function(j){
     var el=document.getElementById('prodAnaViewBody');if(!el)return;
