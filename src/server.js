@@ -569,6 +569,22 @@ app.get('/api/auth/refresh-token', (req, res) => {
   });
 });
 
+app.post('/api/db/reset', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const dbPath = process.env.RAILWAY_ENVIRONMENT ? '/app/persistent/orders.db' : './data/orders.db';
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath);
+      console.log('[DB] 손상된 DB 삭제:', dbPath);
+    }
+    // 새 DB 재초기화
+    const OrderDB = require('./db/order-db');
+    const newDB = new OrderDB();
+    await newDB.ensureReady();
+    // 전역 교체는 서버 재시작 필요
+    res.json({ success: true, message: 'DB 삭제 완료. 서버 재시작이 필요합니다.' });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
 app.get('/api/debug/salesreport', async (req, res) => {
   try {
     const { start_date, end_date, path } = req.query;
