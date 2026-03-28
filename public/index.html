@@ -175,7 +175,7 @@ canvas{max-height:300px}
         <button class="sf-btn" onclick="setSalesChannel('쿠팡',this)" data-ch="쿠팡"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--cpg);vertical-align:middle;margin-right:3px"></span>쿠팡</button>
         <button class="sf-btn" onclick="setSalesChannel('네이버',this)" data-ch="네이버"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--nvr);vertical-align:middle;margin-right:3px"></span>네이버</button>
       </div>
-      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis()">조회</button></div>
+      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis();loadProfitAnalysis()">조회</button></div>
     </div>
   </div>
   <div class="g4" id="salesKpi"></div>
@@ -183,6 +183,18 @@ canvas{max-height:300px}
   <div class="cd"><div class="ct">일별 매출 추이<span id="salesChartLabel" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div><canvas id="dailySalesChart"></canvas><div class="legend" id="salesLegend"></div></div>
   <div class="g2"><div class="cd"><div class="ct">요일별 매출 패턴</div><canvas id="weekdayChart"></canvas></div><div class="cd"><div class="ct">시간대별 주문 패턴</div><canvas id="hourlyChart"></canvas></div></div>
   <div class="cd" id="salesDailyTable" style="display:none"><div class="ct">일별 채널 매출 상세</div><div style="max-height:400px;overflow-y:auto"><table><thead><tr><th>날짜</th><th>카페24</th><th>쿠팡</th><th>네이버</th><th>합계</th></tr></thead><tbody id="salesDailyBody"></tbody></table></div></div>
+  <!-- 이익 분석 -->
+  <div class="cd" id="profitSection">
+    <div class="ct">이익 분석 (원가 기반)<span id="profitPeriod" style="font-size:10px;color:var(--t3);font-weight:400;margin-left:8px"></span></div>
+    <div class="g4" id="profitKpi" style="margin-bottom:12px"></div>
+    <div id="profitMatchInfo" style="font-size:11px;color:var(--t3);margin-bottom:10px"></div>
+    <div style="max-height:400px;overflow-y:auto">
+      <table>
+        <thead><tr><th>상품명</th><th style="text-align:right">판매수량</th><th style="text-align:right">매출액</th><th style="text-align:right">원가합</th><th style="text-align:right">이익</th><th style="text-align:right">이익률</th><th>매칭</th></tr></thead>
+        <tbody id="profitBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ TAB: 재고관리 ═══ -->
@@ -450,7 +462,7 @@ function renderHistory(list) {
 
 function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['overview','collector','sales','inventory'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis()};if(id==='inventory')loadInventory()}
+function showTab(id,btn){['overview','collector','sales','inventory'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadProfitAnalysis()};if(id==='inventory')loadInventory()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
@@ -747,6 +759,53 @@ async function loadStockFilters() {
       }
     }
   } catch(e) {}
+}
+async function loadProfitAnalysis() {
+  var sd = document.getElementById('salesStart')?.value || '2026-03-01';
+  var ed = document.getElementById('salesEnd')?.value || todayStr();
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/margin?start_date='+sd+'&end_date='+ed);
+    var j = await r.json();
+    if (!j.success || !j.data) return;
+    var d = j.data;
+    var s = d.summary;
+    // KPI
+    var kpi = document.getElementById('profitKpi');
+    if (kpi) {
+      var mRate = s.matchedMarginRate || 0;
+      var mColor = mRate >= 30 ? 'var(--grn)' : mRate >= 15 ? 'var(--amb)' : 'var(--red)';
+      kpi.innerHTML =
+        kpiCard('매출액', fW(s.totalRevenue), '', '', '조회기간 합계') +
+        kpiCard('원가합', fW(s.matchedCost), '', '', '매칭상품 기준') +
+        kpiCard('이익', fW(s.matchedMargin), '', '', '매출-원가') +
+        kpiCard('이익률', s.matchedMarginRate+'%', '', '', '매칭 '+s.matchedProducts+'종 / 미매칭 '+s.unmatchedProducts+'종');
+    }
+    // 기간 표시
+    var pEl = document.getElementById('profitPeriod');
+    if (pEl) pEl.textContent = sd + ' ~ ' + ed;
+    // 매칭 정보
+    var mi = document.getElementById('profitMatchInfo');
+    if (mi) mi.innerHTML = '원가 매칭: <b>'+s.matchedProducts+'종</b> (매출 '+fW(s.matchedRevenue)+') · 미매칭: <b>'+s.unmatchedProducts+'종</b> · 매칭 이익률: <b style="color:'+mColor+'">'+s.matchedMarginRate+'%</b>';
+    // 테이블
+    var tb = document.getElementById('profitBody');
+    if (tb && d.items) {
+      var h = '';
+      d.items.forEach(function(it) {
+        var mrColor = it.margin_rate >= 30 ? 'var(--grn)' : it.margin_rate >= 15 ? 'var(--amb)' : it.margin_rate > 0 ? 'var(--t1)' : 'var(--red)';
+        var matchBadge = it.match_type === 'code' ? '<span style="color:var(--grn);font-size:10px">코드</span>' : it.match_type === 'exact' ? '<span style="color:var(--c24);font-size:10px">상품명</span>' : it.match_type === 'partial' ? '<span style="color:var(--amb);font-size:10px">부분</span>' : '<span style="color:var(--t3);font-size:10px">-</span>';
+        h += '<tr>';
+        h += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+it.product_name+'">'+it.product_name+'</td>';
+        h += '<td style="text-align:right">'+fN(it.total_qty)+'</td>';
+        h += '<td style="text-align:right">'+fW(it.total_revenue)+'</td>';
+        h += '<td style="text-align:right">'+(it.total_cost > 0 ? fW(it.total_cost) : '-')+'</td>';
+        h += '<td style="text-align:right;font-weight:600;color:'+(it.margin>=0?'var(--grn)':'var(--red)')+'">'+fW(it.margin)+'</td>';
+        h += '<td style="text-align:right;color:'+mrColor+'">'+(it.match_type !== 'none' ? it.margin_rate+'%' : '-')+'</td>';
+        h += '<td>'+matchBadge+'</td>';
+        h += '</tr>';
+      });
+      tb.innerHTML = h;
+    }
+  } catch(e) { console.log('[Profit]', e.message); }
 }
 function setStockPeriod(type) {
   var now = new Date();
