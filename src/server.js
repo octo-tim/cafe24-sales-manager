@@ -561,11 +561,28 @@ app.get('/api/auth/refresh-token', (req, res) => {
 
 app.get('/api/debug/salesreport', async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, path } = req.query;
     const sd = start_date || '2026-03-28';
     const ed = end_date || '2026-03-28';
-    const result = await cafe24._apiRequest({ method:'GET', path:`/api/v2/admin/salesreport?start_date=${sd}&end_date=${ed}` });
-    res.json({ success: true, data: result });
+    // 여러 경로 시도
+    const paths = path ? [path] : [
+      '/api/v2/admin/salesreport',
+      '/api/v2/admin/reports/salesvolume',
+      '/api/v2/admin/reports/sales',
+      '/api/v2/admin/dashboard',
+      '/api/v2/admin/reports/dailysales'
+    ];
+    const results = [];
+    for (const p of paths) {
+      try {
+        const fullPath = p + (p.includes('?') ? '&' : '?') + 'start_date=' + sd + '&end_date=' + ed;
+        const r = await cafe24._apiRequest({ method:'GET', path: fullPath });
+        results.push({ path: p, success: true, data: JSON.stringify(r).substring(0,500) });
+      } catch(e) {
+        results.push({ path: p, success: false, error: e.message.substring(0,200) });
+      }
+    }
+    res.json({ success: true, results });
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
 app.get('/api/debug/test', async (req, res) => {
