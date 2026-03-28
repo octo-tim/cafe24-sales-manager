@@ -156,7 +156,7 @@ class OrderDB {
     if (opts.category) sql += ` AND category = '${opts.category}'`;
     sql += ' ORDER BY shipped DESC, base_stock DESC';
     if (opts.limit) sql += ` LIMIT ${opts.limit}`;
-    return this.db.exec(sql)[0]?.values?.map(r => ({product_code:r[0],product_name:r[1],option_name:r[2],base_stock:r[3],shipped:r[4],expected_stock:r[5]})) || [];
+    return this.db.exec(sql)[0]?.values?.map(r => ({product_code:r[0],product_name:r[1],option_name:r[2],base_stock:r[3],shipped:r[4],expected_stock:r[5],supplier:r[6]||'',category:r[7]||''})) || [];
   }
 
   /** 스냅샷 요약 */
