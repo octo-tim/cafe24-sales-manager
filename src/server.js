@@ -559,6 +559,15 @@ app.get('/api/auth/refresh-token', (req, res) => {
   });
 });
 
+app.get('/api/debug/salesreport', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const sd = start_date || '2026-03-28';
+    const ed = end_date || '2026-03-28';
+    const result = await cafe24._apiRequest({ method:'GET', path:`/api/v2/admin/salesreport?start_date=${sd}&end_date=${ed}` });
+    res.json({ success: true, data: result });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
 app.get('/api/debug/test', async (req, res) => {
   try { const https=require('https'); const token=cafe24.tokens?cafe24.tokens.access_token:null; const m=cafe24.config.mallId; const v=cafe24.config.apiVersion; const r=await new Promise((ok,no)=>{const o={hostname:m+'.cafe24api.com',path:'/api/v2/admin/orders?limit=1',method:'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Cafe24-Api-Version':v}};const q=https.request(o,rs=>{let d='';rs.on('data',c=>d+=c);rs.on('end',()=>ok({status:rs.statusCode,body:d.substring(0,500)}))});q.on('error',no);q.end()}); res.json(r); }
   catch(e){res.json({error:e.message})}
