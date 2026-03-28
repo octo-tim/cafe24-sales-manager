@@ -135,17 +135,17 @@ class OrderDB {
     let created = 0;
 
     for (const item of inventory) {
-      const baseStock = item.stock_qty;
-      // 출고량: 상품명 매칭 → 상품코드 매칭 → 0
-      const shipped = orderQty[item.product_name] || orderQtyByCode[item.product_code] || 0;
-      const expected = Math.max(0, baseStock - shipped);
+      const baseStock = item.stock_qty || 0;
+      // 출고량: supplier_option → variant_code (1순위) → 상품명 (2순위) → 0
+      const shipped = (item.supplier_option && orderQtyByVariant[item.supplier_option]) || orderQtyByName[item.product_name] || 0;
+      const expected = baseStock - shipped;
 
       stmt.run([date, item.product_code, item.product_name, item.option_name, baseStock, shipped, expected]);
       created++;
     }
     stmt.free();
     this._persist();
-    return { created, date, totalShipped: Object.values(orderQty).reduce((s,v)=>s+v, 0) };
+    return { created, date, totalShipped: Object.values(orderQtyByVariant).reduce((s,v)=>s+v, 0) + Object.values(orderQtyByName).reduce((s,v)=>s+v, 0) };
   }
 
   /** 날짜별 스냅샷 조회 */

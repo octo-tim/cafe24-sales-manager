@@ -705,7 +705,14 @@ async function loadSnapshot() {
     var sm = document.getElementById('snapSummary');
     if (!el) return;
     if (!j.success || !j.data?.items?.length) {
-      el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">스냅샷 없음 — 스냅샷 생성 버튼을 클릭하세요</td></tr>';
+      el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 중...</td></tr>';
+      // 자동 스냅샷 생성
+      try {
+        var sr = await fetch(API_BASE + '/api/inventory-mgmt/snapshot', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:date})});
+        var sj = await sr.json();
+        if (sj.success && sj.data.created > 0) { loadSnapshot(); return; }
+        else { el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 먼저 업로드하세요</td></tr>'; }
+      } catch(ee) { el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">스냅샷 생성 실패</td></tr>'; }
       if (sm) sm.innerHTML = '';
       return;
     }
