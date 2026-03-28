@@ -2,7 +2,40 @@
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>멀티채널 판매관리 v2.1</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><!-- TAB: 접속통계 -->
+<div id="tab-analytics" class="hide">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+    <div><h2 style="font-size:20px;font-weight:700">접속통계</h2><p style="font-size:12px;color:var(--t2);margin-top:2px">카페24 Analytics API 연동 — 광고효과, 장바구니, 페이지뷰, 방문자, 유입경로</p></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="date" id="anaStart" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <span style="color:var(--t3)">~</span>
+      <input type="date" id="anaEnd" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
+      <button class="collect-btn" onclick="loadAllAnalytics()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
+    </div>
+  </div>
+  <div id="anaStatus" style="margin-bottom:12px;font-size:12px;color:var(--t3)"></div>
+  <!-- 방문자 개요 -->
+  <div class="g4" id="anaVisitorKpi" style="margin-bottom:16px"></div>
+  <!-- 2열: 방문자추이 + 유입경로 -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">일별 방문자 추이</div><canvas id="anaVisitorChart"></canvas></div>
+    <div class="cd"><div class="ct">유입 도메인 TOP</div><div id="anaDomainBody" style="max-height:300px;overflow-y:auto"></div></div>
+  </div>
+  <!-- 2열: 광고효과 + 장바구니 -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">광고매체별 매출·방문</div><div id="anaAdBody" style="max-height:300px;overflow-y:auto"></div></div>
+    <div class="cd"><div class="ct">장바구니 담김 TOP</div><div id="anaCartBody" style="max-height:300px;overflow-y:auto"></div></div>
+  </div>
+  <!-- 페이지뷰 -->
+  <div class="cd" style="margin-bottom:16px"><div class="ct">페이지 조회수 TOP</div><div id="anaPageBody" style="max-height:300px;overflow-y:auto"></div></div>
+  <!-- 유입 키워드 + 광고키워드매출 -->
+  <div class="g2">
+    <div class="cd"><div class="ct">검색 키워드 TOP</div><div id="anaKeywordBody" style="max-height:300px;overflow-y:auto"></div></div>
+    <div class="cd"><div class="ct">광고 키워드별 매출</div><div id="anaAdKwBody" style="max-height:300px;overflow-y:auto"></div></div>
+  </div>
+</div>
+
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0C0D10;--bg2:#14161B;--bg3:#1C1F26;--bd:#2E3140;--t1:#E8E6E1;--t2:#9B99A1;--t3:#6B6977;--grn:#4AE68A;--red:#F0605D;--blu:#5B9DF0;--pur:#A78BFA;--amb:#F0B232;--teal:#2DD4BF;--c24:#3266ad;--cpg:#e24b4a;--nvr:#1d9e75}

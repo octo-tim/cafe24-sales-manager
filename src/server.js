@@ -590,4 +590,49 @@ app.get('/api/debug/test', async (req, res) => {
   catch(e){res.json({error:e.message})}
 });
 
+
+// ═══════════════════════════════════════════════
+//  F. 카페24 접속통계(Analytics) API 프록시
+// ═══════════════════════════════════════════════
+app.get('/api/analytics/:category/:endpoint', async (req, res) => {
+  if (!cafe24.tokens?.access_token) return res.json({ success: false, error: '카페24 미인증' });
+  try {
+    const { category, endpoint } = req.params;
+    const { start_date, end_date, device_type, limit, offset, sort, order } = req.query;
+    const mallId = cafe24.config.mallId;
+    const token = cafe24.tokens.access_token;
+    const https = require('https');
+    
+    let qs = `mall_id=${mallId}&shop_no=1`;
+    if (start_date) qs += `&start_date=${start_date}`;
+    if (end_date) qs += `&end_date=${end_date}`;
+    if (device_type) qs += `&device_type=${device_type}`;
+    if (limit) qs += `&limit=${limit}`;
+    if (offset) qs += `&offset=${offset}`;
+    if (sort) qs += `&sort=${sort}`;
+    if (order) qs += `&order=${order}`;
+    
+    const path = `/${category}/${endpoint}?${qs}`;
+    const data = await new Promise((resolve, reject) => {
+      const opts = {
+        hostname: 'ca-api.cafe24data.com',
+        path: path,
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      };
+      const req2 = https.request(opts, (resp) => {
+        let body = '';
+        resp.on('data', c => body += c);
+        resp.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch(e) { resolve({ raw: body.substring(0, 500), status: resp.statusCode }); }
+        });
+      });
+      req2.on('error', reject);
+      req2.end();
+    });
+    res.json({ success: true, data, _path: path });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
 module.exports = app;
