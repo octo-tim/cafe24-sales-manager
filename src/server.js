@@ -498,7 +498,7 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
     `)[0]?.values || [];
 
     // 재고 DB에서 원가 매핑 테이블 구축 (supplier_option이 핵심 매칭 키)
-    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option, cost_price, sell_price FROM inventory WHERE cost_price > 0')[0]?.values || [];
+    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option, cost_price, sell_price FROM inventory')[0]?.values || [];
     const costBySupplierOpt = {};  // 공급처옵션 → {cost, sell, name}
     const costByCode = {};  // product_code → {cost, sell, name}
     const costByBarcode = {};  // barcode → {cost, sell, name}
@@ -512,10 +512,23 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       if (barcode) costByBarcode[barcode] = entry;
     }
 
-    // ★ 이카운트 상품 원가 추가 매칭 (재고 엑셀에 없는 상품도 이카운트에서 원가 확보)
+    // ★ 이카운트 상품 원가: 재고 엑셀의 바코드로 이카운트 원가 보충
     const ecountMap = orderDB.getEcountCostMap();
     const ecByBarcode = ecountMap.byBarcode;
     const ecByCode = ecountMap.byCode;
+
+    // 재고 엑셀 원가가 0인 상품 → 이카운트 바코드로 원가 보충
+    for (const [code, barcode, name, opt, supplierOpt, cost, sell] of invRows) {
+      if (cost > 0) continue; // 이미 원가 있으면 스킵
+      // 재고 엑셀의 바코드로 이카운트 매칭
+      const ecMatch = (barcode && ecByBarcode[barcode]) || (code && ecByBarcode[code]) || (supplierOpt && ecByCode[supplierOpt]);
+      if (ecMatch) {
+        const entry = { cost: ecMatch.cost, sell: ecMatch.sell || sell, name, option: opt };
+        if (supplierOpt) costBySupplierOpt[supplierOpt] = costBySupplierOpt[supplierOpt] || entry;
+        if (code) costByCode[code] = costByCode[code] || entry;
+        if (barcode) costByBarcode[barcode] = costByBarcode[barcode] || entry;
+      }
+    }
 
     const items = salesRows.map((salesRow) => {
       const [name, productNo, qty, revenue, orders, variantCode] = salesRow;
