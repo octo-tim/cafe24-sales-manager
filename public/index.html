@@ -108,8 +108,8 @@ canvas{max-height:300px}
 
   <!-- 시간대별 매출 + 방문자 차트 -->
   <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">시간대별 매출 (30분 단위)</div><canvas id="todaySalesChart"></canvas></div>
-    <div class="cd"><div class="ct">시간대별 방문자수</div><canvas id="todayVisitorChart"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 매출·구매자</div><canvas id="todaySalesChart"></canvas></div>
+    <div class="cd"><div class="ct">최근 7일 방문자 추이</div><canvas id="todayVisitorChart"></canvas></div>
   </div>
 
   <!-- 주문건수 TOP10 + 주문금액 TOP10 -->
@@ -1390,54 +1390,46 @@ async function loadTodaySalesChart(today) {
     var j = await r.json();
     var data = j.data;
     if (!data) return;
-    // 첫 번째 배열 키 추출
     var key = Object.keys(data).find(function(k){return Array.isArray(data[k])});
     var arr = key ? data[key] : (Array.isArray(data)?data:[]);
     
-    // 30분 단위로 시간대별 매출
-    var labels = [], values = [];
-    for (var h = 0; h < 24; h++) {
-      for (var m = 0; m < 2; m++) {
-        labels.push(String(h).padStart(2,'0')+':'+(m===0?'00':'30'));
-        values.push(0);
-      }
-    }
+    // 시간 단위 (0~23시)
+    var labels = [], values = [], buyers = [];
+    for (var h = 0; h < 24; h++) { labels.push(h+'시'); values.push(0); buyers.push(0); }
     arr.forEach(function(d) {
-      var hour = parseInt(d.hour||d.time_slot||0);
-      var idx = hour * 2; // 30분 단위가 없으면 시간 단위
-      if (idx < values.length) {
-        var amt = parseFloat(d.order_amount||d.sales_amount||d.amount||0);
-        values[idx] += amt;
+      var hour = parseInt(d.hour||0);
+      if (hour < 24) {
+        values[hour] = parseFloat(d.order_amount||0);
+        buyers[hour] = parseInt(d.buyers_count||0);
       }
     });
     
-    makeChart('todaySalesChart',{type:'bar',data:{labels:labels,datasets:[{data:values,backgroundColor:'#3266ad40',borderColor:'#3266ad',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}},x:{ticks:{maxTicksLimit:12,font:{size:10}}}}}});
+    makeChart('todaySalesChart',{type:'bar',data:{labels:labels,datasets:[{label:'매출',data:values,backgroundColor:'#3266ad40',borderColor:'#3266ad',borderWidth:1,yAxisID:'y'},{label:'구매자',data:buyers,type:'line',borderColor:'#f59e0b',backgroundColor:'#f59e0b40',fill:false,tension:.3,pointRadius:2,borderWidth:1.5,yAxisID:'y1'}]},options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},scales:{y:{position:'left',ticks:{callback:function(v){return fK(v)}}},y1:{position:'right',grid:{display:false},ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}}}});
   } catch(e) { console.log('[Today] Sales chart:', e.message); }
 }
 
 async function loadTodayVisitorChart(today) {
   try {
-    var r = await fetch(API_BASE+'/api/analytics/visitors/view?start_date='+today+'&end_date='+today);
+    // 최근 7일 방문자 추이로 표시 (오늘 단일일은 의미 없으므로)
+    var d7 = new Date(); d7.setDate(d7.getDate()-6);
+    var sd = d7.toISOString().substring(0,10);
+    var r = await fetch(API_BASE+'/api/analytics/visitors/view?start_date='+sd+'&end_date='+today);
     var j = await r.json();
     var data = j.data;
     if (!data) return;
     var key = Object.keys(data).find(function(k){return Array.isArray(data[k])});
     var arr = key ? data[key] : (Array.isArray(data)?data:[]);
     
-    var labels = [], vals = [];
+    var labels = [], visitors = [], revisits = [], pageviews = [];
     arr.forEach(function(d) {
       var dt = d.date || d.visit_date || '';
       labels.push(dt.substring(5)||dt);
-      vals.push(parseInt(d.visit_count||d.visitor_count||d.unique_visit_count||0));
+      visitors.push(parseInt(d.visit_count||d.visitor_count||0));
+      revisits.push(parseInt(d.re_visit_count||d.revisit_count||0));
+      pageviews.push(parseInt(d.page_view||d.pageview_count||0));
     });
     
-    if (!labels.length) {
-      // 시간별이 아니라 일별이면 단일 데이터
-      labels = [today.substring(5)];
-      vals = [arr.reduce(function(s,d){return s+parseInt(d.visit_count||d.visitor_count||0)},0)];
-    }
-    
-    makeChart('todayVisitorChart',{type:'bar',data:{labels:labels,datasets:[{data:vals,backgroundColor:'#22c55e40',borderColor:'#22c55e',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{font:{size:10}}}}}});
+    makeChart('todayVisitorChart',{type:'line',data:{labels:labels,datasets:[{label:'방문자',data:visitors,borderColor:'#22c55e',backgroundColor:'#22c55e20',fill:true,tension:.3,pointRadius:3,borderWidth:1.5},{label:'재방문',data:revisits,borderColor:'#8b5cf6',backgroundColor:'#8b5cf620',fill:false,tension:.3,pointRadius:2,borderWidth:1}]},options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},scales:{y:{beginAtZero:true},x:{ticks:{font:{size:10}}}}}});
   } catch(e) { console.log('[Today] Visitor chart:', e.message); }
 }
 
