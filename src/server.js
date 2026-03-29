@@ -371,6 +371,27 @@ app.get('/api/inventory-mgmt/stock-filters', (req, res) => {
     res.json({ success: true, data: { suppliers, categories } });
   } catch (err) { res.json({ success: true, data: { suppliers: [], categories: [] } }); }
 });
+/** POST /api/ecount/upload — 이카운트 상품 원가 업로드 (JSON) */
+app.post('/api/ecount/upload', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const items = req.body.items || req.body;
+    if (!Array.isArray(items) || !items.length) return res.json({ success: false, error: '데이터 없음' });
+    const result = orderDB.saveEcountProducts(items);
+    res.json({ success: true, data: result });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+/** GET /api/ecount/stats — 이카운트 상품 통계 */
+app.get('/api/ecount/stats', (req, res) => {
+  if (!dbReady) return res.json({ success: true, data: { count: 0 } });
+  try {
+    const count = orderDB.db.exec('SELECT COUNT(*) FROM ecount_products')[0]?.values?.[0]?.[0] || 0;
+    const withCost = orderDB.db.exec('SELECT COUNT(*) FROM ecount_products WHERE cost_price > 0')[0]?.values?.[0]?.[0] || 0;
+    res.json({ success: true, data: { count, withCost } });
+  } catch(e) { res.json({ success: true, data: { count: 0 } }); }
+});
+
 /** GET /api/inventory-mgmt/margin — 상품별 마진 분석 (product_no + 상품명 복합 매칭) */
 app.get('/api/inventory-mgmt/margin', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
@@ -401,6 +422,11 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       // 3순위: barcode (별도 매핑)
       if (barcode) costByBarcode[barcode] = entry;
     }
+
+    // ★ 이카운트 상품 원가 추가 매칭 (재고 엑셀에 없는 상품도 이카운트에서 원가 확보)
+    const ecountMap = orderDB.getEcountCostMap();
+    const ecByBarcode = ecountMap.byBarcode;
+    const ecByCode = ecountMap.byCode;
 
     const items = salesRows.map((salesRow) => {
       const [name, productNo, qty, revenue, orders, variantCode] = salesRow;
@@ -434,6 +460,19 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         matched = costByBarcode[productNo];
         matchType = 'barcode';
         matchedName = matched.name;
+      }
+
+      // 5순위: variant_code → 이카운트 바코드 매칭
+      if (!matched && variantCode && ecByBarcode[variantCode]) {
+        matched = ecByBarcode[variantCode];
+        matchType = 'ecount';
+        matchedName = matched.name;
+      }
+
+      // 6순위: product_no → 이카운트 바코드/품목코드 매칭
+      if (!matched && productNo) {
+        if (ecByBarcode[productNo]) { matched = ecByBarcode[productNo]; matchType = 'ecount'; matchedName = matched.name; }
+        else if (ecByCode[productNo]) { matched = ecByCode[productNo]; matchType = 'ecount'; matchedName = matched.name; }
       }
 
       const costPrice = matched ? matched.cost : 0;

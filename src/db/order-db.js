@@ -81,6 +81,21 @@ class OrderDB {
         console.log('[DB] VACUUM 후 DB 크기: ' + newSize + 'MB');
       }
     } catch(e) { console.warn('[DB] raw_json 정리 실패:', e.message); }
+    // ★ 이카운트 상품 원가 (품목코드+바코드 → 입고단가)
+    this.db.run(`CREATE TABLE IF NOT EXISTS ecount_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_code TEXT NOT NULL,
+      barcode TEXT DEFAULT '',
+      item_name TEXT DEFAULT '',
+      option_name TEXT DEFAULT '',
+      cost_price REAL DEFAULT 0,
+      sell_price REAL DEFAULT 0,
+      category TEXT DEFAULT '',
+      supplier TEXT DEFAULT '',
+      uploaded_at TEXT DEFAULT (datetime('now'))
+    )`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_ec_code ON ecount_products(item_code)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_ec_barcode ON ecount_products(barcode)`);
     // 토큰 저장
     this.db.run(`CREATE TABLE IF NOT EXISTS token_store (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))`);
   }
@@ -106,6 +121,37 @@ class OrderDB {
   // ═══════════════════════════════════════════════
   //  재고 관리
   // ═══════════════════════════════════════════════
+
+  /** 이카운트 상품 원가 저장 */
+  saveEcountProducts(items) {
+    if (!items?.length) return { inserted: 0 };
+    this.db.run('DELETE FROM ecount_products');
+    const stmt = this.db.prepare('INSERT OR REPLACE INTO ecount_products (item_code, barcode, item_name, option_name, cost_price, sell_price, category, supplier) VALUES (?,?,?,?,?,?,?,?)');
+    let cnt = 0;
+    for (const it of items) {
+      try {
+        stmt.run([it.code||'', it.barcode||'', it.name||'', it.option||'', it.cost||0, it.sell||0, it.category||'', it.supplier||'']);
+        cnt++;
+      } catch(e) {}
+    }
+    stmt.free();
+    this._persist();
+    console.log('[DB] 이카운트 상품 ' + cnt + '건 저장');
+    return { inserted: cnt };
+  }
+
+  /** 이카운트 원가 매핑 테이블 조회 (품목코드→원가, 바코드→원가) */
+  getEcountCostMap() {
+    const byCode = {};
+    const byBarcode = {};
+    const rows = this.db.exec('SELECT item_code, barcode, item_name, option_name, cost_price, sell_price FROM ecount_products WHERE cost_price > 0')[0]?.values || [];
+    for (const [code, barcode, name, option, cost, sell] of rows) {
+      const entry = { cost, sell, name, option };
+      if (code) byCode[code] = entry;
+      if (barcode) byBarcode[barcode] = entry;
+    }
+    return { byCode, byBarcode, total: rows.length };
+  }
 
   /** 엑셀 파싱된 재고 데이터 저장 (전체 교체) */
   saveInventory(items, baseDate = '') {
@@ -341,6 +387,37 @@ class OrderDB {
   saveCollectHistory(r) { this.db.run(`INSERT INTO collect_history (trigger_type,timestamp,duration,period_start,period_end,period_days,total_count,channels_json) VALUES (?,?,?,?,?,?,?,?)`, [r.trigger,r.timestamp,r.duration,r.period?.start||'',r.period?.end||'',r.period?.days||0,r.totalCount,JSON.stringify(r.channels)]); this._persist(); }
   getCollectHistory(l=20) { return this.db.exec(`SELECT id,trigger_type,timestamp,duration,period_start,period_end,period_days,total_count,channels_json FROM collect_history ORDER BY id DESC LIMIT ${l}`)[0]?.values?.map(r=>({id:r[0],trigger:r[1],timestamp:r[2],duration:r[3],period:{start:r[4],end:r[5],days:r[6]},totalCount:r[7],channels:JSON.parse(r[8]||'[]')}))||[]; }
   getStats() { const t=this.getOrderCount();const bc=this.getOrderCountByChannel();const dr=this.db.exec('SELECT MIN(order_date),MAX(order_date) FROM orders WHERE order_date!=""')[0]?.values?.[0]||[null,null];const hc=this.db.exec('SELECT COUNT(*) FROM collect_history')[0]?.values?.[0]?.[0]||0;const ic=this.db.exec('SELECT COUNT(*) FROM inventory')[0]?.values?.[0]?.[0]||0;return{totalOrders:t,byChannel:bc,dateRange:{from:dr[0],to:dr[1]},collectHistory:hc,inventoryProducts:ic,dbPath:DB_PATH,dbSize:fs.existsSync(DB_PATH)?Math.round(fs.statSync(DB_PATH).size/1024)+'KB':'0KB'}; }
+  /** 이카운트 상품 저장 (전체 교체) */
+  saveEcountProducts(items) {
+    if (!items?.length) return { inserted: 0 };
+    this.db.run('DELETE FROM ecount_products');
+    const stmt = this.db.prepare('INSERT INTO ecount_products (item_code, barcode, item_name, option_name, cost_price, sell_price, category, supplier) VALUES (?,?,?,?,?,?,?,?)');
+    let cnt = 0;
+    for (const it of items) {
+      try {
+        stmt.run([it.code||'', it.barcode||'', it.name||'', it.option||'', it.cost||0, it.sell||0, it.category||'', it.supplier||'']);
+        cnt++;
+      } catch(e) {}
+    }
+    stmt.free();
+    this._persist();
+    console.log(`[DB] 이카운트 상품 ${cnt}건 저장`);
+    return { inserted: cnt };
+  }
+
+  /** 이카운트 원가 매핑 테이블: barcode → {cost, sell, name} */
+  getEcountCostMap() {
+    const byBarcode = {};
+    const byCode = {};
+    const rows = this.db.exec('SELECT item_code, barcode, item_name, option_name, cost_price, sell_price FROM ecount_products WHERE cost_price > 0')[0]?.values || [];
+    for (const [code, barcode, name, opt, cost, sell] of rows) {
+      const entry = { cost, sell, name, option: opt };
+      if (barcode) byBarcode[barcode] = entry;
+      if (code) byCode[code] = entry;
+    }
+    return { byBarcode, byCode, count: rows.length };
+  }
+
   close() { this._persist(); if(this._saveInterval)clearInterval(this._saveInterval); }
 }
 
