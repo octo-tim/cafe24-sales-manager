@@ -564,11 +564,10 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
         matchedName = matched.name;
       }
 
-      // 5순위: variant_code → 이카운트 바코드 매칭
-      if (!matched && variantCode && ecByBarcode[variantCode]) {
-        matched = ecByBarcode[variantCode];
-        matchType = 'ecount';
-        matchedName = matched.name;
+      // 5순위: variant_code → 이카운트 품목코드/바코드 매칭
+      if (!matched && variantCode) {
+        if (ecByCode[variantCode]) { matched = ecByCode[variantCode]; matchType = 'ecount'; matchedName = matched.name; }
+        else if (ecByBarcode[variantCode]) { matched = ecByBarcode[variantCode]; matchType = 'ecount'; matchedName = matched.name; }
       }
 
       // 6순위: product_no → 이카운트 바코드/품목코드 매칭

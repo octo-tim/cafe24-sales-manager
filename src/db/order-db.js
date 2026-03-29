@@ -141,18 +141,6 @@ class OrderDB {
   }
 
   /** 이카운트 원가 매핑 테이블 조회 (품목코드→원가, 바코드→원가) */
-  getEcountCostMap() {
-    const byCode = {};
-    const byBarcode = {};
-    const rows = this.db.exec('SELECT item_code, barcode, item_name, option_name, cost_price, sell_price FROM ecount_products WHERE cost_price > 0')[0]?.values || [];
-    for (const [code, barcode, name, option, cost, sell] of rows) {
-      const entry = { cost, sell, name, option };
-      if (code) byCode[code] = entry;
-      if (barcode) byBarcode[barcode] = entry;
-    }
-    return { byCode, byBarcode, total: rows.length };
-  }
-
   /** 엑셀 파싱된 재고 데이터 저장 (전체 교체) */
   saveInventory(items, baseDate = '') {
     if (!items?.length) return { inserted: 0 };
