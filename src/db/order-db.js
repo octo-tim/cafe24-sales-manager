@@ -68,6 +68,16 @@ class OrderDB {
     // 마이그레이션: supplier, category 컬럼 추가
     try { this.db.run('ALTER TABLE inventory_snapshot ADD COLUMN supplier TEXT DEFAULT ""'); } catch(e) {}
     try { this.db.run('ALTER TABLE inventory_snapshot ADD COLUMN category TEXT DEFAULT ""'); } catch(e) {}
+    // raw_json 정리 (DB 크기 최적화 — 1.1GB → ~50MB)
+    try {
+      const rawSize = this.db.exec("SELECT SUM(LENGTH(raw_json)) FROM orders WHERE raw_json != '' AND raw_json != '{}'")[0]?.values?.[0]?.[0] || 0;
+      if (rawSize > 1000000) { // 1MB 이상이면 정리
+        console.log('[DB] raw_json 정리 시작 (' + Math.round(rawSize/1024/1024) + 'MB)...');
+        this.db.run("UPDATE orders SET raw_json = '' WHERE raw_json != '' AND raw_json != '{}'");
+        console.log('[DB] raw_json 정리 완료');
+        this._persist();
+      }
+    } catch(e) { console.warn('[DB] raw_json 정리 실패:', e.message); }
     // 토큰 저장
     this.db.run(`CREATE TABLE IF NOT EXISTS token_store (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))`);
   }
@@ -290,7 +300,7 @@ class OrderDB {
         const customer = raw.buyer_name||'';
         const items = raw.items || [];
         if (items.length <= 1) {
-          return [{ id:`c24_${orderId}`, channel, order_id:orderId, order_date:orderDate, status, product_name:items[0]?.product_name||'', product_no:String(items[0]?.product_no||''), variant_code:String(items[0]?.custom_variant_code||items[0]?.variant_code||''), quantity:items.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer, raw_json:JSON.stringify(raw) }];
+          return [{ id:`c24_${orderId}`, channel, order_id:orderId, order_date:orderDate, status, product_name:items[0]?.product_name||'', product_no:String(items[0]?.product_no||''), variant_code:String(items[0]?.custom_variant_code||items[0]?.variant_code||''), quantity:items.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer, raw_json:'' }];
         }
         // 여러 items → item별 분리 저장
         return items.map((item, idx) => ({
@@ -301,11 +311,11 @@ class OrderDB {
           variant_code:String(item.custom_variant_code||item.variant_code||''),
           quantity:parseInt(item.quantity||1),
           amount:parseFloat(item.payment_amount||item.product_price||0)*parseInt(item.quantity||1),
-          customer, raw_json:JSON.stringify(raw)
+          customer, raw_json:''
         }));
       }
-      case '쿠팡': return [{ id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:JSON.stringify(raw) }];
-      case '네이버': return [{ id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:JSON.stringify(raw) }];
+      case '쿠팡': return [{ id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:'' }];
+      case '네이버': return [{ id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:'' }];
       default: return [{ id:`unk_${Date.now()}`, channel, order_id:'', order_date:'', status:'', product_name:'', product_no:'', variant_code:'', quantity:1, amount:0, customer:'', raw_json:'{}' }];
     }
   }
