@@ -109,7 +109,7 @@ canvas{max-height:300px}
   <!-- 시간대별 매출 + 방문자 차트 -->
   <div class="g2" style="margin-bottom:16px">
     <div class="cd"><div class="ct">시간대별 매출·구매자</div><canvas id="todaySalesChart"></canvas></div>
-    <div class="cd"><div class="ct">최근 7일 방문자 추이</div><canvas id="todayVisitorChart"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 방문자수 추이</div><canvas id="todayVisitorChart"></canvas></div>
   </div>
 
   <!-- 주문건수 TOP10 + 주문금액 TOP10 -->
@@ -1410,7 +1410,7 @@ async function loadTodaySalesChart(today) {
 
 async function loadTodayVisitorChart(today) {
   try {
-    // 최근 7일 방문자 추이로 표시 (오늘 단일일은 의미 없으므로)
+    // 시간대별 방문자수 추이로 표시 (오늘 단일일은 의미 없으므로)
     var d7 = new Date(); d7.setDate(d7.getDate()-6);
     var sd = d7.toISOString().substring(0,10);
     var r = await fetch(API_BASE+'/api/analytics/visitors/view?start_date='+sd+'&end_date='+today);
