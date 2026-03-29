@@ -74,8 +74,11 @@ class OrderDB {
       if (rawSize > 1000000) { // 1MB 이상이면 정리
         console.log('[DB] raw_json 정리 시작 (' + Math.round(rawSize/1024/1024) + 'MB)...');
         this.db.run("UPDATE orders SET raw_json = '' WHERE raw_json != '' AND raw_json != '{}'");
-        console.log('[DB] raw_json 정리 완료');
+        console.log('[DB] raw_json 정리 완료 → VACUUM 실행...');
+        try { this.db.run('VACUUM'); } catch(ve) { console.warn('[DB] VACUUM 실패:', ve.message); }
         this._persist();
+        const newSize = fs.existsSync(DB_PATH) ? Math.round(fs.statSync(DB_PATH).size/1024/1024) : 0;
+        console.log('[DB] VACUUM 후 DB 크기: ' + newSize + 'MB');
       }
     } catch(e) { console.warn('[DB] raw_json 정리 실패:', e.message); }
     // 토큰 저장
