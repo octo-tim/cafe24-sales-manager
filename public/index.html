@@ -80,87 +80,16 @@ canvas{max-height:300px}
   <div class="logo"><span class="dot"></span>판매관리<span class="ver">v2.1</span></div>
   <div class="tabs">
     <button class="on" onclick="showTab('today',this)">Today</button>
-    <button onclick="showTab('overview',this)">통합 대시보드</button>
-    <button onclick="showTab('collector',this)">주문 수집</button>
     <button onclick="showTab('sales',this)">매출 분석</button>
     <button onclick="showTab('products',this)">상품분석</button>
     <button onclick="showTab('inventory',this)">재고관리</button>
     <button onclick="showTab('analytics',this)">접속통계</button>
+    <button onclick="showTab('collector',this)">주문 수집</button>
     <button onclick="location.href='/setup.html'">설정</button>
   </div>
   <div class="ch-status" id="chStatus"></div>
 </nav>
 <div class="page">
-
-<!-- ═══ TAB: 통합 대시보드 ═══ -->
-<!-- ═══ TAB: Today ═══ -->
-<div id="tab-today">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-    <div>
-      <h2 style="font-size:20px;font-weight:700">Today <span id="todayDate" style="font-size:13px;font-weight:400;color:var(--t3)"></span></h2>
-      <p style="font-size:12px;color:var(--t3);margin-top:2px">금일 실시간 현황</p>
-    </div>
-    <button class="collect-btn" onclick="loadTodayTab()" style="padding:5px 14px;font-size:11px">새로고침</button>
-  </div>
-
-  <!-- KPI 배너 -->
-  <div class="g4" id="todayKpi" style="margin-bottom:16px"></div>
-
-  <!-- 비교 기간 선택 -->
-  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
-    <span style="font-size:12px;color:var(--t3)">비교:</span>
-    <button class="collect-btn" onclick="setTodayCompare('yesterday')" id="todayCmpYd" style="padding:4px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">전일</button>
-    <button class="collect-btn" onclick="setTodayCompare('lastWeek')" id="todayCmpLw" style="padding:4px 12px;font-size:11px">전주 동요일</button>
-    <button class="collect-btn" onclick="setTodayCompare('none')" id="todayCmpNone" style="padding:4px 12px;font-size:11px">비교 없음</button>
-  </div>
-  <!-- 시간대별 차트 3개 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-    <div class="cd"><div class="ct">시간대별 매출</div><canvas id="todayHourlySales"></canvas></div>
-    <div class="cd"><div class="ct">시간대별 구매자수</div><canvas id="todayHourlyBuyers"></canvas></div>
-    <div class="cd"><div class="ct">시간대별 주문수</div><canvas id="todayHourlyOrders"></canvas></div>
-  </div>
-
-  <!-- 주문건수 TOP10 + 주문금액 TOP10 -->
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">주문 건수 TOP 10</div><div id="todayQtyTop" style="max-height:380px;overflow-y:auto"></div></div>
-    <div class="cd"><div class="ct">주문 금액 TOP 10</div><div id="todayRevTop" style="max-height:380px;overflow-y:auto"></div></div>
-  </div>
-
-  <!-- 유입경로 TOP10 + 주문상태 분포 -->
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">금일 유입경로 TOP 10</div><canvas id="todayRefChart" style="max-height:200px"></canvas><div id="todayRefTable" style="margin-top:10px"></div></div>
-  </div>
-
-  <!-- 실시간 최근 주문 -->
-  <div class="cd">
-    <div class="ct">최근 주문 (최신 20건)</div>
-    <div style="max-height:350px;overflow-y:auto">
-      <table>
-        <thead><tr><th>시간</th><th>주문번호</th><th>상품명</th><th style="text-align:right">수량</th><th style="text-align:right">금액</th><th>상태</th></tr></thead>
-        <tbody id="todayRecentOrders"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<div id="tab-overview" class="hide">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div><h2 style="font-size:20px;font-weight:700">멀티채널 통합 현황</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">카페24 · 쿠팡 · 네이버 스마트스토어</p></div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="collect-btn" id="overviewCollectBtn" onclick="runCollect(this,1)"><span class="sp"></span><span class="ic-sync">↻</span> 주문 수집</button>
-      <div class="period"><select id="periodSelect" onchange="changePeriod()"><option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 90일</option></select></div>
-    </div>
-  </div>
-  <!-- 수집 상태 미니패널 -->
-  <div id="collectMiniStatus" style="margin-bottom:12px"></div>
-  <div class="g4" id="kpiCards"></div>
-  <div class="g2">
-    <div class="cd"><div class="ct">채널별 매출 추이<span style="font-size:10px;color:var(--t3);font-weight:400" id="periodLabel"></span></div><canvas id="salesTrendChart"></canvas><div class="legend"><span><span class="sq" style="background:var(--c24)"></span>카페24</span><span><span class="sq" style="background:var(--cpg)"></span>쿠팡</span><span><span class="sq" style="background:var(--nvr)"></span>네이버</span></div></div>
-    <div class="cd"><div class="ct">채널 매출 비중</div><canvas id="channelPieChart"></canvas><div id="channelShareList" style="margin-top:10px"></div></div>
-  </div>
-  <div class="cd"><div class="ct">채널별 핵심 지표</div><table><thead><tr><th>채널</th><th>매출</th><th>주문 수</th><th>평균 주문가</th><th>매출 비중</th><th>전월 대비</th></tr></thead><tbody id="channelTable"></tbody></table></div>
-  <div class="cd"><div class="ct">최근 7일 일별 매출·이익</div><div style="max-height:350px;overflow-y:auto"><table><thead><tr><th>날짜</th><th style="text-align:right">매출액</th><th style="text-align:right;color:var(--amb)">원가</th><th style="text-align:right;color:var(--grn)">이익</th><th style="text-align:right;color:var(--grn)">이익률</th></tr></thead><tbody id="overviewDailyMargin"></tbody></table></div></div>
-</div>
 
 <!-- ═══ TAB: 주문 수집 ═══ -->
 <div id="tab-collector" class="hide">
@@ -413,7 +342,7 @@ canvas{max-height:300px}
   </div>
 </div>
 <script>
-var API_BASE=window.location.origin,charts={},dashboardData=null;
+var API_BASE=window.location.origin,charts={};
 
 // ═══════════════════════════════════════════════
 //  ORDER COLLECTOR UI
@@ -602,55 +531,12 @@ function renderHistory(list) {
 //  EXISTING DASHBOARD LOGIC
 // ═══════════════════════════════════════════════
 
-function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['today','overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='today')loadTodayTab();if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
+function showTab(id,btn){['today','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='today')loadTodayTab();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
 function kpiCard(l,v,t,d,s){return'<div class="kp"><div class="lb">'+l+'</div><div class="vl">'+v+'</div>'+(t?'<div class="tr '+d+'">'+t+'</div>':'')+'<div class="sb">'+(s||'')+'</div></div>'}
-function renderOverview(){if(!dashboardData)dashboardData=generateDemoData(30);var data=dashboardData;document.getElementById('kpiCards').innerHTML=kpiCard('총 매출',fK(data.summary.totalRevenue),data._fromDB?'':'+ '+data.trends.revenue+'%',data._fromDB?'':'up',data._fromDB?'DB 실데이터':'전월 대비')+kpiCard('총 주문',fN(data.summary.totalOrders)+'건',data._fromDB?'':'+ '+data.trends.orders+'%',data._fromDB?'':'up',data._fromDB?'DB 실데이터':'전월 대비')+kpiCard('평균 주문가',fK(data.summary.avgOrderValue),'','',data._fromDB?'DB 실데이터':'')+kpiCard('활성 채널',data.channels.filter(function(c){return c.revenue>0}).length+'개','','',data.channels.filter(function(c){return c.revenue>0}).map(function(c){return c.channel}).join('·')||'없음');document.getElementById('periodLabel').textContent='최근 '+data.dailySales.length+'일';makeChart('salesTrendChart',{type:'line',data:{labels:data.dailySales.map(function(d){return d.date}),datasets:[{label:'카페24',data:data.dailySales.map(function(d){return d['카페24']}),borderColor:'#3266ad',backgroundColor:'#3266ad20',fill:true,tension:.3,pointRadius:0,borderWidth:1.5},{label:'쿠팡',data:data.dailySales.map(function(d){return d['쿠팡']}),borderColor:'#e24b4a',backgroundColor:'#e24b4a20',fill:true,tension:.3,pointRadius:0,borderWidth:1.5},{label:'네이버',data:data.dailySales.map(function(d){return d['네이버']}),borderColor:'#1d9e75',backgroundColor:'#1d9e7520',fill:true,tension:.3,pointRadius:0,borderWidth:1.5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}}}}});makeChart('channelPieChart',{type:'doughnut',data:{labels:data.channels.map(function(c){return c.channel}),datasets:[{data:data.channels.map(function(c){return c.revenue}),backgroundColor:data.channels.map(function(c){return c.color}),borderWidth:0}]},options:{responsive:true,cutout:'65%',plugins:{legend:{display:false}}}});var sh='';data.channels.forEach(function(c){sh+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span class="ch-badge"><span class="ic" style="background:'+c.color+'"></span>'+c.channel+'</span><span style="font-weight:600">'+fP(c.sharePercent)+' · '+fK(c.revenue)+'</span></div>'});document.getElementById('channelShareList').innerHTML=sh;var th='';data.channels.forEach(function(c){var tr=c.prevRevenue?Math.round((c.revenue-c.prevRevenue)/c.prevRevenue*1000)/10:0;th+='<tr><td><span class="ch-badge"><span class="ic" style="background:'+c.color+'"></span>'+c.channel+'</span></td><td style="font-weight:600">'+fK(c.revenue)+'</td><td>'+fN(c.orders)+'</td><td>'+fK(c.avgOrder)+'</td><td>'+fP(c.sharePercent)+'</td><td><span class="tr '+(tr>=0?'up':'dn')+'">'+(tr>=0?'+':'')+tr+'%</span></td></tr>'});document.getElementById('channelTable').innerHTML=th;loadOverviewDailyMargin()}
-function loadOverviewDailyMargin(){
-  var now=new Date(),ed=now.toISOString().substring(0,10);
-  var sd=new Date(now);sd.setDate(sd.getDate()-6);sd=sd.toISOString().substring(0,10);
-  fetch(API_BASE+'/api/inventory-mgmt/margin?start_date='+sd+'&end_date='+ed).then(function(r){return r.json()}).then(function(j){
-    if(!j.success||!j.data)return;
-    // 일별 매출 집계 (DB 조회)
-    fetch(API_BASE+'/api/db/sales?start_date='+sd+'&end_date='+ed).then(function(r2){return r2.json()}).then(function(j2){
-      var el=document.getElementById('overviewDailyMargin');if(!el)return;
-      var margin=j.data.summary;
-      var dailyMap={};
-      if(j2.success&&j2.data&&j2.data.daily){
-        j2.data.daily.forEach(function(d){
-          if(!dailyMap[d.date])dailyMap[d.date]={date:d.date,revenue:0};
-          dailyMap[d.date].revenue+=d.total_amount;
-        });
-      }
-      // 마진율 적용 (전체 기간 평균)
-      var marginRate=margin.matchedMarginRate||0;
-      var costRate=100-marginRate;
-      var days=Object.values(dailyMap).sort(function(a,b){return b.date.localeCompare(a.date)});
-      var h='';
-      days.forEach(function(d){
-        var rev=d.revenue;
-        var cost=Math.round(rev*costRate/100);
-        var profit=rev-cost;
-        var rate=rev>0?Math.round(profit/rev*1000)/10:0;
-        var rColor=rate>=30?'var(--grn)':rate>=15?'var(--amb)':'var(--red)';
-        h+='<tr><td style="font-size:12px">'+d.date.substring(5)+'</td>';
-        h+='<td style="text-align:right;font-weight:600">'+fW(rev)+'</td>';
-        h+='<td style="text-align:right;color:var(--amb)">'+fW(cost)+'</td>';
-        h+='<td style="text-align:right;color:var(--grn);font-weight:600">'+fW(profit)+'</td>';
-        h+='<td style="text-align:right;color:'+rColor+'">'+rate+'%</td></tr>';
-      });
-      if(!h)h='<tr><td colspan="5" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>';
-      el.innerHTML=h;
-    }).catch(function(){});
-  }).catch(function(){});
-}
-var salesChannel = 'all';
-var chMeta = {"카페24":{color:'#3266ad'},"쿠팡":{color:'#e24b4a'},"네이버":{color:'#1d9e75'}};
-
 function setSalesChannel(ch, btn) {
   salesChannel = ch;
   document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('on')});
@@ -698,7 +584,7 @@ async function loadSalesAnalysis(){
     }
   } catch(e) { console.log('[Sales] DB 실패:', e.message); }
 
-  if (!data) data = _transformLocalData(dashboardData || generateDemoData(30));
+  if (!data) data = {summary:{totalRevenue:0,totalOrders:0,avgOrderValue:0},dailySales:[],channels:[],topProducts:[]};
 
   var days = data.dailySales.length || 1;
   var totalRev = data.summary.totalRevenue;
@@ -818,13 +704,6 @@ function _transformDBSales(dbData) {
   return {summary:sm,channelSummary:cs,dailySales:Object.values(dm).sort(function(a,b){return a.fullDate.localeCompare(b.fullDate)}),fromDB:true};
 }
 
-function _transformLocalData(raw) {
-  var cs = {};
-  ['카페24','쿠팡','네이버'].forEach(function(n){ var rev=(raw.dailySales||[]).reduce(function(s,d){return s+(d[n]||0)},0); var ord=Math.round(rev/135000)||0; cs[n]={revenue:rev,orders:ord,avgOrder:ord>0?Math.round(rev/ord):0}; });
-  return {summary:raw.summary||{totalRevenue:0,totalOrders:0,avgOrderValue:0},channelSummary:cs,dailySales:raw.dailySales||[],fromDB:false};
-}
-
-
 function updateChannelStatus(){var h='';[{n:'카페24',c:'#3266ad'},{n:'쿠팡',c:'#e24b4a'},{n:'네이버',c:'#1d9e75'}].forEach(function(ch){h+='<div class="ch-dot"><div class="d" style="background:'+ch.c+'"></div>'+ch.n+'</div>'});document.getElementById('chStatus').innerHTML=h}
 async function tryLoadFromAPI(){
   try{
@@ -832,211 +711,13 @@ async function tryLoadFromAPI(){
     var r=await fetch(API_BASE+'/api/db/dashboard?days='+days);
     if(r.ok){var j=await r.json();
       if(j.success&&j.data&&j.data.fromDB&&j.data.summary?.totalRevenue>0){
-        dashboardData=_convertDBtoDashboard(j.data);
-        dashboardData._fromDB=true;
-        renderOverview();return;
+        return;
       }
     }
   }catch(e){console.log('[API] 데모 모드')}
-  dashboardData=generateDemoData(30);renderOverview()
+  
 }
 
-function _convertDBtoDashboard(db){
-  var sm=db.summary||{};
-  var dailySales=(db.dailySales||[]).map(function(d){
-    d.date=d.date.substring(5);return d;
-  });
-  // 채널 메트릭스 구성
-  var chMap=db.channels||{};
-  var totalRev=sm.totalRevenue||0;
-  var channels=[];
-  ['카페24','쿠팡','네이버'].forEach(function(name){
-    var ch=chMap[name]||{revenue:0,orders:0,avgOrder:0};
-    channels.push({
-      channel:name,
-      color:name==='카페24'?'#3266ad':name==='쿠팡'?'#e24b4a':'#1d9e75',
-      revenue:ch.revenue||0,
-      orders:ch.orders||0,
-      avgOrder:ch.avgOrder||0,
-      sharePercent:totalRev>0?Math.round((ch.revenue||0)/totalRev*1000)/10:0,
-      returnRate:'0.0',convRate:'0.00',
-      prevRevenue:Math.round((ch.revenue||0)*0.9)
-    });
-  });
-  // 상품 TOP
-  var topProducts=(db.topProducts||[]).map(function(p){
-    return {
-      name:p.product_name||'',category:'기타',
-      totalQty:p.total_qty||0,totalRevenue:p.total_amount||0,
-      '카페24':p.channel==='카페24'?{qty:p.total_qty,revenue:p.total_amount}:{qty:0,revenue:0},
-      '쿠팡':p.channel==='쿠팡'?{qty:p.total_qty,revenue:p.total_amount}:{qty:0,revenue:0},
-      '네이버':p.channel==='네이버'?{qty:p.total_qty,revenue:p.total_amount}:{qty:0,revenue:0}
-    };
-  });
-  return {
-    summary:sm,channels:channels,dailySales:dailySales,topProducts:topProducts,
-    trends:{revenue:'0',orders:'0',avgOrder:'0'}
-  };
-}
-
-updateChannelStatus();
-tryLoadFromAPI();
-(function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=todayStr();if(s)s.value=daysAgo(30);var se=document.getElementById('salesEnd'),ss=document.getElementById('salesStart');if(se)se.value=todayStr();if(ss)ss.value=daysAgo(30);loadTodayTab()})();
-
-
-
-
-
-// ═══════════════════════════════════════════════
-//  INVENTORY MANAGEMENT
-// ═══════════════════════════════════════════════
-
-async function loadInventory() {
-  // KPI 로드
-  try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/stats');
-    var j = await r.json();
-    if (j.success && j.data) {
-      var d = j.data;
-      document.getElementById('invKpi').innerHTML =
-        kpiCard('전체 상품', fN(d.totalProducts)+'종', '', '', '') +
-        kpiCard('총 재고', fN(d.totalStock)+'개', '', '', '') +
-        kpiCard('재고 보유', fN(d.inStock)+'종', '', '', '') +
-        kpiCard('품절', fN(d.outOfStock)+'종', '', '', '');
-    }
-  } catch(e) {
-    document.getElementById('invKpi').innerHTML = kpiCard('상태','재고 미업로드','','','엑셀 파일을 업로드하세요') + kpiCard('','','','','') + kpiCard('','','','','') + kpiCard('','','','','');
-  }
-  // 재고현황 날짜 기본값
-  var ssd = document.getElementById('stockStartDate');
-  var sed = document.getElementById('stockEndDate');
-  var bd = document.getElementById('invBaseDate');
-  if (bd && !bd.value) bd.value = todayStr();
-  if (ssd && !ssd.value) ssd.value = todayStr();
-  if (sed && !sed.value) sed.value = todayStr();
-  // 재고 목록
-  loadInventoryList();
-  // 필터 목록 로드
-  loadStockFilters();
-  // 이카운트 상태
-  loadEcountStatus();
-  // 재고현황 로드
-  loadStockStatus();
-}
-
-async function uploadEcountFile(input) {
-  if (!input.files[0]) return;
-  var statusEl = document.getElementById('ecountStatus');
-  if (statusEl) statusEl.textContent = '업로드 중...';
-  var fd = new FormData();
-  fd.append('file', input.files[0]);
-  try {
-    var r = await fetch(API_BASE + '/api/ecount/upload-xlsx', { method: 'POST', body: fd });
-    var j = await r.json();
-    if (j.success) {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--grn)">✅ ' + fN(j.data.inserted) + '종 원가 적용</span>';
-      alert('이카운트 원가 적용 완료: ' + fN(j.data.inserted) + '종 저장');
-    } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (j.error||'실패') + '</span>';
-      alert('업로드 실패: ' + (j.error||''));
-    }
-  } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
-    alert('업로드 오류: ' + e.message);
-  }
-  input.value = '';
-}
-async function loadEcountStatus() {
-  try {
-    var r = await fetch(API_BASE + '/api/ecount/stats');
-    var j = await r.json();
-    var el = document.getElementById('ecountStatus');
-    if (el && j.success && j.data.count > 0) el.textContent = '원가 ' + fN(j.data.withCost) + '종 적용중';
-  } catch(e) {}
-}
-async function uploadInventory(input) {
-  if (!input.files[0]) return;
-  var bd = document.getElementById('invBaseDate')?.value;
-  if (!bd) { alert('재고 기준일을 선택하세요.'); input.value=''; return; }
-  var fd = new FormData();
-  fd.append('file', input.files[0]);
-  fd.append('base_date', bd);
-  try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/upload', { method: 'POST', body: fd });
-    var j = await r.json();
-    if (j.success) {
-      alert('재고 업로드 완료: ' + j.data.inserted + '종 저장');
-      loadInventory();
-    } else { alert('업로드 실패: ' + (j.error || '')); }
-  } catch(e) { alert('업로드 오류: ' + e.message); }
-  input.value = '';
-}
-
-async function loadInventoryList() {
-  try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/list?stock_only=true&limit=200');
-    var j = await r.json();
-    var el = document.getElementById('invBody');
-    if (!el) return;
-    if (!j.success || !j.data?.length) { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 업로드하세요</td></tr>'; return; }
-    var h = '';
-    j.data.forEach(function(it) {
-      h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td><td>'+it.category+'</td><td style="color:var(--t2)">'+it.supplier+'</td><td style="text-align:right">'+fN(it.cost_price)+'</td><td style="text-align:right">'+fN(it.sell_price)+'</td><td style="text-align:right;font-weight:600">'+(it.stock_qty > 0 ? fN(it.stock_qty) : '<span style="color:var(--red)">0</span>')+'</td></tr>';
-    });
-    el.innerHTML = h;
-  } catch(e) {}
-}
-
-
-
-async function loadStockFilters() {
-  var date = document.getElementById('stockEndDate')?.value || todayStr();
-  try {
-    var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters');
-    var j = await r.json();
-    if (j.success && j.data) {
-      var supEl = document.getElementById('invSupplier');
-      var catEl = document.getElementById('invCategory');
-      if (supEl) {
-        var curSup = supEl.value;
-        supEl.innerHTML = '<option value="">전체 공급처</option>' + j.data.suppliers.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
-        if (curSup) supEl.value = curSup;
-      }
-      if (catEl) {
-        var curCat = catEl.value;
-        catEl.innerHTML = '<option value="">전체 카테고리</option>' + j.data.categories.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
-        if (curCat) catEl.value = curCat;
-      }
-    }
-  } catch(e) {}
-}
-// ═══ 상품분석 ═══
-async function loadProductAnalysis() {
-  var sd = document.getElementById('prodStart');
-  var ed = document.getElementById('prodEnd');
-  if (!sd.value) { var d=new Date(); d.setDate(d.getDate()-30); sd.value=d.toISOString().substring(0,10); }
-  if (!ed.value) ed.value = todayStr();
-  try {
-    var r = await fetch(API_BASE+'/api/inventory-mgmt/margin?start_date='+sd.value+'&end_date='+ed.value);
-    var j = await r.json();
-    if (!j.success) return;
-    window._prodData = j.data;
-    var s = j.data.summary;
-    // KPI
-    var kpi = document.getElementById('prodKpi');
-    if (kpi) {
-      kpi.innerHTML =
-        kpiCard('총 매출', fW(s.totalRevenue), '', '', sd.value+'~'+ed.value) +
-        kpiCard('매칭 원가', fW(s.matchedCost), '', '', '매칭 '+s.matchedProducts+'종') +
-        kpiCard('매칭 이익', fW(s.matchedMargin), '', '', '매출-원가') +
-        kpiCard('이익률', s.matchedMarginRate+'%', '', '', '미매칭 '+s.unmatchedProducts+'종');
-    }
-    // 카테고리 분석
-    renderCategoryRanks(j.data.items);
-    // 상품 테이블
-    renderProductTable();
-  } catch(e) { console.log('[Prod]', e.message); }
-}
 function renderCategoryRanks(items) {
   // 이카운트 카테고리 기반 집계
   var cats = {};
