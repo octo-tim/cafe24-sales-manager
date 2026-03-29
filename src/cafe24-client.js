@@ -6,7 +6,7 @@ const path = require('path');
 const CONCURRENCY       = 5;
 const MIN_DELAY_MS      = 120;
 const RATE_LIMIT_DELAY  = 1200;
-const PAGE_SIZE         = 100;
+const PAGE_SIZE         = 500;
 const CACHE_TTL_MS      = 60_000;
 
 class Cafe24Client {
@@ -236,18 +236,34 @@ class Cafe24Client {
 
   async getAllOrders(startDate, endDate, extraParams = {}) {
     await this._ensureValidToken();
-    const baseParams = { start_date:startDate, end_date:endDate, embed:'items', ...extraParams };
-    const countRes = await this._get('/api/v2/admin/orders/count', { start_date:startDate, end_date:endDate });
-    const total = countRes?.count ?? 0;
-    if (total === 0) return [];
-    const offsets = [];
-    for (let offset = 0; offset < total; offset += PAGE_SIZE) offsets.push(offset);
-    console.log(`[Cafe24] ${total}건 → ${offsets.length}p 병렬`);
-    const pages = await this._parallelPages(offsets, (offset) =>
-      this._get('/api/v2/admin/orders', { ...baseParams, limit:PAGE_SIZE, offset })
-        .then(r => r?.orders ?? r?.data?.orders ?? []).catch(() => [])
-    );
-    return pages.flat();
+    // 날짜 목록 생성 (일별 분할 — offset 10,000 제한 우회)
+    const dates = [];
+    const d = new Date(startDate);
+    const end = new Date(endDate);
+    while (d <= end) { dates.push(d.toISOString().substring(0,10)); d.setDate(d.getDate()+1); }
+    
+    let allOrders = [];
+    for (const date of dates) {
+      // 일별 건수 확인
+      const countRes = await this._get('/api/v2/admin/orders/count', { start_date:date, end_date:date, ...extraParams }).catch(()=>({count:0}));
+      const dayTotal = countRes?.count ?? 0;
+      if (dayTotal === 0) continue;
+      
+      // offset 생성 (최대 10,000까지)
+      const maxOffset = Math.min(dayTotal, 10000);
+      const offsets = [];
+      for (let offset = 0; offset < maxOffset; offset += PAGE_SIZE) offsets.push(offset);
+      
+      console.log(`[Cafe24] ${date}: ${dayTotal}건 → ${offsets.length}p`);
+      
+      const pages = await this._parallelPages(offsets, (offset) =>
+        this._get('/api/v2/admin/orders', { start_date:date, end_date:date, embed:'items', ...extraParams, limit:PAGE_SIZE, offset })
+          .then(r => r?.orders ?? r?.data?.orders ?? []).catch(() => [])
+      );
+      allOrders = allOrders.concat(pages.flat());
+    }
+    console.log(`[Cafe24] 전체 ${startDate}~${endDate}: ${allOrders.length}건 수집`);
+    return allOrders;
   }
 
   async getProducts(params = {}) { return this._get('/api/v2/admin/products', { limit:100, offset:0, ...params }); }
