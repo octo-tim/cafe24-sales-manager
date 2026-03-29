@@ -178,7 +178,14 @@ canvas{max-height:300px}
         <button class="sf-btn" onclick="setSalesChannel('쿠팡',this)" data-ch="쿠팡"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--cpg);vertical-align:middle;margin-right:3px"></span>쿠팡</button>
         <button class="sf-btn" onclick="setSalesChannel('네이버',this)" data-ch="네이버"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--nvr);vertical-align:middle;margin-right:3px"></span>네이버</button>
       </div>
-      <div class="period"><input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis();loadSalesAnalytics()">조회</button></div>
+      <div class="period" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="collect-btn" onclick="setPagePeriod('sales','today')" style="padding:4px 10px;font-size:11px">금일</button>
+      <button class="collect-btn" onclick="setPagePeriod('sales','yesterday')" style="padding:4px 10px;font-size:11px">전일</button>
+      <button class="collect-btn" onclick="setPagePeriod('sales','thisWeek')" style="padding:4px 10px;font-size:11px">금주</button>
+      <button class="collect-btn" onclick="setPagePeriod('sales','lastWeek')" style="padding:4px 10px;font-size:11px">전주</button>
+      <button class="collect-btn" onclick="setPagePeriod('sales','thisMonth')" style="padding:4px 10px;font-size:11px">금월</button>
+      <button class="collect-btn" onclick="setPagePeriod('sales','lastMonth')" style="padding:4px 10px;font-size:11px">전월</button>
+      <input type="date" id="salesStart" value="2026-03-01"><span style="color:var(--t3)">~</span><input type="date" id="salesEnd" value="2026-03-27"><button onclick="loadSalesAnalysis();loadSalesAnalytics()">조회</button></div>
     </div>
   </div>
   <div class="g4" id="salesKpi"></div>
@@ -195,10 +202,16 @@ canvas{max-height:300px}
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">상품분석</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">기간별 상품/카테고리 매출·이익 순위</p></div>
     <div style="display:flex;align-items:center;gap:8px">
+      <button class="collect-btn" onclick="setPagePeriod('prod','today')" style="padding:4px 10px;font-size:11px">금일</button>
+      <button class="collect-btn" onclick="setPagePeriod('prod','yesterday')" style="padding:4px 10px;font-size:11px">전일</button>
+      <button class="collect-btn" onclick="setPagePeriod('prod','thisWeek')" style="padding:4px 10px;font-size:11px">금주</button>
+      <button class="collect-btn" onclick="setPagePeriod('prod','lastWeek')" style="padding:4px 10px;font-size:11px">전주</button>
+      <button class="collect-btn" onclick="setPagePeriod('prod','thisMonth')" style="padding:4px 10px;font-size:11px">금월</button>
+      <button class="collect-btn" onclick="setPagePeriod('prod','lastMonth')" style="padding:4px 10px;font-size:11px">전월</button>
       <input type="date" id="prodStart" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
       <span style="color:var(--t3)">~</span>
       <input type="date" id="prodEnd" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
-      <button class="collect-btn" onclick="loadProductAnalysis()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
+      <button class="collect-btn" onclick="loadProductAnalysis();loadProductAnalytics()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
     </div>
   </div>
   <div class="g4" id="prodKpi" style="margin-bottom:16px"></div>
@@ -1127,6 +1140,23 @@ function loadProductAnalytics(){
     });
     el.innerHTML=_at([['#','center'],['상품명','left'],['조회수','right']],rows);
   }).catch(function(){});
+}
+function setPagePeriod(page, type) {
+  var sdId = page === 'sales' ? 'salesStart' : 'prodStart';
+  var edId = page === 'sales' ? 'salesEnd' : 'prodEnd';
+  var sd = document.getElementById(sdId);
+  var ed = document.getElementById(edId);
+  if (!sd || !ed) return;
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  if (type === 'today') { sd.value = todayStr(); ed.value = todayStr(); }
+  else if (type === 'yesterday') { var yd = new Date(now); yd.setDate(yd.getDate()-1); sd.value = yd.toISOString().substring(0,10); ed.value = sd.value; }
+  else if (type === 'thisWeek') { var dow = now.getDay() || 7; var mon = new Date(now); mon.setDate(mon.getDate()-dow+1); sd.value = mon.toISOString().substring(0,10); ed.value = todayStr(); }
+  else if (type === 'lastWeek') { var dow = now.getDay() || 7; var mon = new Date(now); mon.setDate(mon.getDate()-dow+1); var lm = new Date(mon); lm.setDate(lm.getDate()-7); var ls = new Date(mon); ls.setDate(ls.getDate()-1); sd.value = lm.toISOString().substring(0,10); ed.value = ls.toISOString().substring(0,10); }
+  else if (type === 'thisMonth') { sd.value = y+'-'+String(m+1).padStart(2,'0')+'-01'; ed.value = todayStr(); }
+  else if (type === 'lastMonth') { var pm = m===0?11:m-1; var py = m===0?y-1:y; var lastDay = new Date(py,pm+1,0).getDate(); sd.value = py+'-'+String(pm+1).padStart(2,'0')+'-01'; ed.value = py+'-'+String(pm+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0'); }
+  if (page === 'sales') { loadSalesAnalysis(); loadSalesAnalytics(); }
+  else { loadProductAnalysis(); loadProductAnalytics(); }
 }
 function setAnaPeriod(type){var sd=document.getElementById('anaStart');var ed=document.getElementById('anaEnd');if(!sd||!ed)return;var now=new Date();var y=now.getFullYear(),m=now.getMonth(),d=now.getDate();if(type==='today'){sd.value=todayStr();ed.value=todayStr()}else if(type==='yesterday'){var yd=new Date(now);yd.setDate(yd.getDate()-1);sd.value=yd.toISOString().substring(0,10);ed.value=sd.value}else if(type==='thisWeek'){var dow=now.getDay()||7;var mon=new Date(now);mon.setDate(mon.getDate()-dow+1);sd.value=mon.toISOString().substring(0,10);ed.value=todayStr()}else if(type==='lastWeek'){var dow=now.getDay()||7;var mon=new Date(now);mon.setDate(mon.getDate()-dow+1);var lm=new Date(mon);lm.setDate(lm.getDate()-7);var ls=new Date(mon);ls.setDate(ls.getDate()-1);sd.value=lm.toISOString().substring(0,10);ed.value=ls.toISOString().substring(0,10)}else if(type==='thisMonth'){sd.value=y+'-'+String(m+1).padStart(2,'0')+'-01';ed.value=todayStr()}else if(type==='lastMonth'){var pm=m===0?11:m-1;var py=m===0?y-1:y;var lastDay=new Date(py,pm+1,0).getDate();sd.value=py+'-'+String(pm+1).padStart(2,'0')+'-01';ed.value=py+'-'+String(pm+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0')}loadAllAnalytics()}
 function initAnalyticsTab(){var sd=document.getElementById('anaStart');var ed=document.getElementById('anaEnd');if(sd&&!sd.value){var d=new Date();d.setDate(d.getDate()-7);sd.value=d.toISOString().substring(0,10)}if(ed&&!ed.value)ed.value=todayStr();loadAllAnalytics()}
