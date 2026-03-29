@@ -611,6 +611,17 @@ app.get('/api/debug/salesreport', async (req, res) => {
     res.json({ success: true, results });
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
+app.get('/api/db/analyze', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const rawSize = orderDB.db.exec("SELECT SUM(LENGTH(raw_json)) FROM orders")[0]?.values?.[0]?.[0] || 0;
+    const nonEmptyRaw = orderDB.db.exec("SELECT COUNT(*) FROM orders WHERE raw_json != '' AND raw_json != '{}'")[0]?.values?.[0]?.[0] || 0;
+    const totalRows = orderDB.db.exec("SELECT COUNT(*) FROM orders")[0]?.values?.[0]?.[0] || 0;
+    const avgRowSize = totalRows > 0 ? Math.round(rawSize / totalRows) : 0;
+    const tableInfo = orderDB.db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values?.map(r=>r[0]) || [];
+    res.json({ success: true, data: { totalRows, rawJsonTotalBytes: rawSize, rawJsonMB: Math.round(rawSize/1024/1024), nonEmptyRawRows: nonEmptyRaw, avgRawBytes: avgRowSize, tables: tableInfo } });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
 app.get('/api/debug/test', async (req, res) => {
   try { const https=require('https'); const token=cafe24.tokens?cafe24.tokens.access_token:null; const m=cafe24.config.mallId; const v=cafe24.config.apiVersion; const r=await new Promise((ok,no)=>{const o={hostname:m+'.cafe24api.com',path:'/api/v2/admin/orders?limit=1',method:'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Cafe24-Api-Version':v}};const q=https.request(o,rs=>{let d='';rs.on('data',c=>d+=c);rs.on('end',()=>ok({status:rs.statusCode,body:d.substring(0,500)}))});q.on('error',no);q.end()}); res.json(r); }
   catch(e){res.json({error:e.message})}
