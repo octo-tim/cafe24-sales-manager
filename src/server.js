@@ -661,4 +661,23 @@ app.get('/api/analytics/:category/:endpoint', async (req, res) => {
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ═══════════════════════════════════════════════
+//  Graceful Shutdown (SIGTERM) — 배포 시 DB 안전 저장
+// ═══════════════════════════════════════════════
+process.on('SIGTERM', () => {
+  console.log('[Server] SIGTERM 수신 — graceful shutdown...');
+  if (dbReady && orderDB) {
+    orderDB.shutdown();
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[Server] SIGINT 수신 — graceful shutdown...');
+  if (dbReady && orderDB) {
+    orderDB.shutdown();
+  }
+  process.exit(0);
+});
+
 module.exports = app;

@@ -169,6 +169,11 @@ class Cafe24Client {
   _saveTokens() {
     try { fs.writeFileSync(path.resolve(this.config.tokenStorePath), JSON.stringify(this.tokens,null,2), 'utf8'); }
     catch(e) { /* Railway에서 파일 저장 실패는 정상 */ }
+    // Volume에도 별도 토큰 파일 저장 (DB 손상 시 백업)
+    if (process.env.RAILWAY_ENVIRONMENT) {
+      try { fs.writeFileSync('/app/persistent/tokens_backup.json', JSON.stringify(this.tokens,null,2), 'utf8'); }
+      catch(e) {}
+    }
   }
 
   /** DB에 최신 토큰 저장 — 배포/재시작 후에도 유지 */
@@ -216,7 +221,18 @@ class Cafe24Client {
       }
     } catch(e) {}
 
-    // 2순위: 환경변수
+    // 2순위: Volume 백업 토큰 파일
+    if (process.env.RAILWAY_ENVIRONMENT) {
+      try {
+        const backupPath = '/app/persistent/tokens_backup.json';
+        if (fs.existsSync(backupPath)) {
+          const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+          if (data?.refresh_token) { console.log('[Auth] Volume 백업 토큰 로드'); return data; }
+        }
+      } catch(e) {}
+    }
+
+    // 3순위: 환경변수
     if (process.env.CAFE24_ACCESS_TOKEN || process.env.CAFE24_REFRESH_TOKEN) {
       console.log('[Auth] 환경변수 토큰 로드');
       return {

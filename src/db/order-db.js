@@ -73,8 +73,21 @@ class OrderDB {
   }
 
   _persist() {
-    try { const d = this.db.export(); fs.writeFileSync(DB_PATH, Buffer.from(d)); }
-    catch (e) { console.warn('[DB] 저장 실패:', e.message); }
+    try {
+      const d = this.db.export();
+      const buf = Buffer.from(d);
+      const tmpPath = DB_PATH + '.tmp';
+      fs.writeFileSync(tmpPath, buf);
+      fs.renameSync(tmpPath, DB_PATH);
+    } catch (e) { console.warn('[DB] 저장 실패:', e.message); }
+  }
+
+  /** 서버 종료 시 안전 저장 */
+  shutdown() {
+    console.log('[DB] Shutdown — 최종 저장...');
+    if (this._saveInterval) clearInterval(this._saveInterval);
+    this._persist();
+    console.log('[DB] Shutdown 완료');
   }
 
   // ═══════════════════════════════════════════════
