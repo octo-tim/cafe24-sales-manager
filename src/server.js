@@ -497,36 +497,21 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       GROUP BY product_name, product_no, variant_code ORDER BY SUM(amount) DESC LIMIT 100
     `)[0]?.values || [];
 
-    // 재고 DB에서 원가 매핑 테이블 구축 (supplier_option이 핵심 매칭 키)
-    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option, cost_price, sell_price FROM inventory')[0]?.values || [];
-    const costBySupplierOpt = {};  // 공급처옵션 → {cost, sell, name}
-    const costByCode = {};  // product_code → {cost, sell, name}
-    const costByBarcode = {};  // barcode → {cost, sell, name}
-    for (const [code, barcode, name, opt, supplierOpt, cost, sell] of invRows) {
-      const entry = { cost, sell, name, option: opt };
-      // 1순위: 공급처옵션 (카페24 custom_variant_code와 매칭)
-      if (supplierOpt) costBySupplierOpt[supplierOpt] = entry;
-      // 2순위: product_code
-      if (code) costByCode[code] = entry;
-      // 3순위: barcode (별도 매핑)
-      if (barcode) costByBarcode[barcode] = entry;
-    }
-
-    // ★ 이카운트 상품 원가: 재고 엑셀의 바코드로 이카운트 원가 보충
+    // ★ 원가 소스: 이카운트 상품리스트 (입고단가)
     const ecountMap = orderDB.getEcountCostMap();
-    const ecByBarcode = ecountMap.byBarcode;
-    const ecByCode = ecountMap.byCode;
+    const ecByCode = ecountMap.byCode;      // 이카운트 품목코드 → {cost, sell, name}
+    const ecByBarcode = ecountMap.byBarcode; // 이카운트 바코드 → {cost, sell, name}
 
-    // 재고 엑셀 원가가 0인 상품 → 이카운트 바코드로 원가 보충
-    for (const [code, barcode, name, opt, supplierOpt, cost, sell] of invRows) {
-      if (cost > 0) continue; // 이미 원가 있으면 스킵
-      // 재고 엑셀의 바코드로 이카운트 매칭
-      const ecMatch = (barcode && ecByBarcode[barcode]) || (code && ecByBarcode[code]) || (supplierOpt && ecByCode[supplierOpt]);
+    // ★ 매칭 키 소스: 재고 엑셀(이지어드민) — supplier_option으로 주문↔이카운트 연결
+    const invRows = orderDB.db.exec('SELECT product_code, barcode, product_name, option_name, supplier_option FROM inventory')[0]?.values || [];
+    // supplier_option → 이카운트 원가 매핑 (재고 엑셀이 중간 다리 역할)
+    const costBySupplierOpt = {};
+    for (const [code, barcode, name, opt, supplierOpt] of invRows) {
+      if (!supplierOpt) continue;
+      // supplier_option 자체가 이카운트 품목코드인 경우
+      const ecMatch = ecByCode[supplierOpt] || ecByBarcode[supplierOpt] || ecByBarcode[barcode] || ecByBarcode[code];
       if (ecMatch) {
-        const entry = { cost: ecMatch.cost, sell: ecMatch.sell || sell, name, option: opt };
-        if (supplierOpt) costBySupplierOpt[supplierOpt] = costBySupplierOpt[supplierOpt] || entry;
-        if (code) costByCode[code] = costByCode[code] || entry;
-        if (barcode) costByBarcode[barcode] = costByBarcode[barcode] || entry;
+        costBySupplierOpt[supplierOpt] = { cost: ecMatch.cost, sell: ecMatch.sell, name: ecMatch.name, option: ecMatch.option, invName: name };
       }
     }
 
@@ -536,44 +521,31 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       let matchType = 'none';
       let matchedName = '';
 
-      // 1순위: variant_code(custom_variant_code) → supplier_option(공급처옵션) 매칭
-      if (variantCode && costBySupplierOpt[variantCode]) {
+      // 1순위: variant_code → 이카운트 품목코드 직접 매칭
+      if (variantCode && ecByCode[variantCode]) {
+        matched = ecByCode[variantCode];
+        matchType = 'code';
+        matchedName = matched.name;
+      }
+
+      // 2순위: variant_code → 이카운트 바코드 직접 매칭
+      if (!matched && variantCode && ecByBarcode[variantCode]) {
+        matched = ecByBarcode[variantCode];
+        matchType = 'code';
+        matchedName = matched.name;
+      }
+
+      // 3순위: variant_code → 재고 엑셀 supplier_option 경유 → 이카운트 원가
+      if (!matched && variantCode && costBySupplierOpt[variantCode]) {
         matched = costBySupplierOpt[variantCode];
         matchType = 'code';
-        matchedName = matched.name;
+        matchedName = matched.invName || matched.name;
       }
 
-      // 2순위: product_no → product_code 매칭
-      if (!matched && productNo && costByCode[productNo]) {
-        matched = costByCode[productNo];
-        matchType = 'code';
-        matchedName = matched.name;
-      }
-
-      // 3순위: variant_code → barcode 매칭
-      if (!matched && variantCode && costByBarcode[variantCode]) {
-        matched = costByBarcode[variantCode];
-        matchType = 'barcode';
-        matchedName = matched.name;
-      }
-
-      // 4순위: product_no → barcode 매칭
-      if (!matched && productNo && costByBarcode[productNo]) {
-        matched = costByBarcode[productNo];
-        matchType = 'barcode';
-        matchedName = matched.name;
-      }
-
-      // 5순위: variant_code → 이카운트 품목코드/바코드 매칭
-      if (!matched && variantCode) {
-        if (ecByCode[variantCode]) { matched = ecByCode[variantCode]; matchType = 'ecount'; matchedName = matched.name; }
-        else if (ecByBarcode[variantCode]) { matched = ecByBarcode[variantCode]; matchType = 'ecount'; matchedName = matched.name; }
-      }
-
-      // 6순위: product_no → 이카운트 바코드/품목코드 매칭
+      // 4순위: product_no → 이카운트 바코드/품목코드
       if (!matched && productNo) {
-        if (ecByBarcode[productNo]) { matched = ecByBarcode[productNo]; matchType = 'ecount'; matchedName = matched.name; }
-        else if (ecByCode[productNo]) { matched = ecByCode[productNo]; matchType = 'ecount'; matchedName = matched.name; }
+        if (ecByCode[productNo]) { matched = ecByCode[productNo]; matchType = 'code'; matchedName = matched.name; }
+        else if (ecByBarcode[productNo]) { matched = ecByBarcode[productNo]; matchType = 'code'; matchedName = matched.name; }
       }
 
       const costPrice = matched ? matched.cost : 0;
