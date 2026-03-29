@@ -378,9 +378,9 @@ class OrderDB {
   getEcountCostMap() {
     const byBarcode = {};
     const byCode = {};
-    const rows = this.db.exec('SELECT item_code, barcode, item_name, option_name, cost_price, sell_price FROM ecount_products WHERE cost_price > 0')[0]?.values || [];
-    for (const [code, barcode, name, opt, cost, sell] of rows) {
-      const entry = { cost, sell, name, option: opt };
+    const rows = this.db.exec('SELECT item_code, barcode, item_name, option_name, cost_price, sell_price, category FROM ecount_products WHERE cost_price > 0')[0]?.values || [];
+    for (const [code, barcode, name, opt, cost, sell, cat] of rows) {
+      const entry = { cost, sell, name, option: opt, category: cat || '' };
       if (barcode) byBarcode[barcode] = entry;
       if (code) byCode[code] = entry;
     }

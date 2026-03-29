@@ -1038,20 +1038,16 @@ async function loadProductAnalysis() {
   } catch(e) { console.log('[Prod]', e.message); }
 }
 function renderCategoryRanks(items) {
-  // 카테고리별 집계
+  // 이카운트 카테고리 기반 집계
   var cats = {};
   items.forEach(function(it) {
-    // 상품명에서 카테고리 추정 (재고 매칭된 상품의 카테고리 사용)
-    var cat = it.match_type !== 'none' ? (it.matched_inv_name || '').substring(0,10) : '미분류';
-    // 실제로는 재고DB의 카테고리를 사용해야 하지만, margin API에서 카테고리를 직접 반환하지 않으므로
-    // 상품명 첫 부분으로 그룹화
-    var prefix = it.product_name.replace(/\[.*?\]/g,'').trim().split(/\s+/)[0] || '기타';
-    if (!cats[prefix]) cats[prefix] = {name:prefix, revenue:0, cost:0, margin:0, qty:0, count:0};
-    cats[prefix].revenue += it.total_revenue;
-    cats[prefix].cost += it.total_cost;
-    cats[prefix].margin += it.margin;
-    cats[prefix].qty += it.total_qty;
-    cats[prefix].count++;
+    var cat = (it.category || '').trim() || '미분류';
+    if (!cats[cat]) cats[cat] = {name:cat, revenue:0, cost:0, margin:0, qty:0, count:0};
+    cats[cat].revenue += it.total_revenue;
+    cats[cat].cost += it.total_cost;
+    cats[cat].margin += it.margin;
+    cats[cat].qty += it.total_qty;
+    cats[cat].count++;
   });
   var catList = Object.values(cats).sort(function(a,b){return b.revenue - a.revenue});
   // 매출 순위

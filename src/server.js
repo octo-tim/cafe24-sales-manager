@@ -511,7 +511,7 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       // supplier_option 자체가 이카운트 품목코드인 경우
       const ecMatch = ecByCode[supplierOpt] || ecByBarcode[supplierOpt] || ecByBarcode[barcode] || ecByBarcode[code];
       if (ecMatch) {
-        costBySupplierOpt[supplierOpt] = { cost: ecMatch.cost, sell: ecMatch.sell, name: ecMatch.name, option: ecMatch.option, invName: name };
+        costBySupplierOpt[supplierOpt] = { cost: ecMatch.cost, sell: ecMatch.sell, name: ecMatch.name, option: ecMatch.option, category: ecMatch.category || '', invName: name };
       }
     }
 
@@ -555,10 +555,13 @@ app.get('/api/inventory-mgmt/margin', (req, res) => {
       const marginRate = revenue > 0 ? Math.round(margin / revenue * 1000) / 10 : 0;
       const unitMargin = qty > 0 ? Math.round((revenue / qty) - costPrice) : 0;
 
+      const category = matched ? (matched.category || '') : '';
+
       return {
         product_name: name,
         product_no: productNo || '',
         matched_inv_name: matchedName,
+        category: category,
         total_qty: qty,
         total_revenue: revenue,
         order_count: orders,
