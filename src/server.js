@@ -46,6 +46,19 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 
 const MAX_COLLECT_DAYS = 30;
 
+/** KST(UTC+9) 기준 날짜 문자열 반환 */
+function kstToday() {
+  const now = new Date();
+  now.setHours(now.getHours() + 9);
+  return now.toISOString().substring(0, 10);
+}
+function kstDaysAgo(days) {
+  const now = new Date();
+  now.setHours(now.getHours() + 9);
+  now.setDate(now.getDate() - days);
+  return now.toISOString().substring(0, 10);
+}
+
 // ═══════════════════════════════════════════════
 //  서버 즉시 시작 (Railway healthcheck 통과)
 // ═══════════════════════════════════════════════
@@ -141,8 +154,8 @@ const collector = {
       if (diff < 0) { this.isRunning = false; return { success: false, error: '시작일 > 종료일' }; }
     } else {
       const d = Math.max(1, Math.min(days, MAX_COLLECT_DAYS));
-      collectStart = new Date(now.getTime() - d * 86400000).toISOString().substring(0, 10);
-      collectEnd = now.toISOString().substring(0, 10);
+      collectStart = kstDaysAgo(d);
+      collectEnd = kstToday();
     }
     const periodDays = Math.ceil((new Date(collectEnd) - new Date(collectStart)) / 86400000) || 1;
     console.log(`[Collector] ${trigger} 수집 (${collectStart}~${collectEnd}, ${periodDays}일)`);
@@ -242,9 +255,8 @@ app.get('/api/db/dashboard', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 초기화 중' });
   try {
     const days = parseInt(req.query.days) || 30;
-    const now = new Date();
-    const s = new Date(now.getTime() - days * 86400000).toISOString().substring(0, 10);
-    const e = now.toISOString().substring(0, 10);
+    const s = kstDaysAgo(days);
+    const e = kstToday();
     res.json({ success: true, data: orderDB.getDashboardData(s, e) });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -659,9 +671,8 @@ cron.schedule('*/30 * * * *', async () => {
 cron.schedule('0 * * * *', () => {
   if (!dbReady) return;
   try {
-    const now = new Date();
-    const s = new Date(now.getTime()-86400000).toISOString().substring(0,10);
-    const e = now.toISOString().substring(0,10);
+    const s = kstDaysAgo(1);
+    const e = kstToday();
     const sm = orderDB.getSalesSummary(s, e);
     const t = sm.reduce((a,r)=>a+r.total_amount,0);
     const c = sm.reduce((a,r)=>a+r.order_count,0);
