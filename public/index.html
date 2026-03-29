@@ -16,7 +16,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .logo{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
 .ver{font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--c24);color:#fff;margin-left:4px}
-.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:2px}
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tabs button{padding:6px 16px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;background:transparent;color:var(--t3);transition:all .15s}
 .tabs button.on{background:var(--grn);color:var(--bg)}
 .ch-status{display:flex;gap:10px;font-size:11px}
@@ -28,6 +28,37 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){
+  .g3-chart{grid-template-columns:1fr!important}
+  td[title]{max-width:120px!important}
+  nav{flex-direction:column;gap:8px;padding:8px 12px}
+  .logo{font-size:13px}
+  .tabs{flex-wrap:wrap;justify-content:center;gap:1px}
+  .tabs button{padding:5px 10px;font-size:10px}
+  .ch-status{display:none}
+  .page{padding:12px 10px 40px}
+  .g2,.g3{grid-template-columns:1fr}
+  .g4{grid-template-columns:1fr 1fr;gap:8px}
+  .kp{padding:12px 14px}
+  .kp .vl{font-size:18px}
+  .kp .lb{font-size:9px}
+  .kp .sb{font-size:10px}
+  .cd{padding:14px;margin-bottom:8px}
+  .ct{font-size:12px;margin-bottom:10px}
+  table{font-size:11px}
+  th{padding:6px 6px;font-size:9px}
+  td{padding:6px 6px}
+  canvas{max-height:220px}
+  .collect-btn{padding:6px 12px;font-size:11px}
+  .period{flex-wrap:wrap;gap:4px}
+  .period input[type=date]{width:110px;font-size:10px;padding:5px 6px}
+  .period select{font-size:10px;padding:5px 6px}
+  .period button{padding:5px 10px;font-size:10px}
+  .bar-label{width:70px;font-size:10px}
+  .bar-val{min-width:50px;font-size:10px}
+  h2{font-size:17px!important}
+  #tab-today>div:nth-child(3){grid-template-columns:1fr!important}
+}
 .kp{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;animation:fadeIn .3s ease}
 .kp .lb{font-size:10px;color:var(--t3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
 .kp .vl{font-size:22px;font-weight:700;letter-spacing:-.02em}
@@ -94,7 +125,7 @@ canvas{max-height:300px}
 <!-- ═══ TAB: 주문 수집 ═══ -->
 <!-- ═══ TAB: Today ═══ -->
 <div id="tab-today">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px">
     <div>
       <h2 style="font-size:20px;font-weight:700">Today <span id="todayDate" style="font-size:13px;font-weight:400;color:var(--t3)"></span></h2>
       <p style="font-size:12px;color:var(--t3);margin-top:2px">금일 실시간 현황</p>
@@ -102,13 +133,13 @@ canvas{max-height:300px}
     <button class="collect-btn" onclick="loadTodayTab()" style="padding:5px 14px;font-size:11px">새로고침</button>
   </div>
   <div class="g4" id="todayKpi" style="margin-bottom:16px"></div>
-  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+  <div style="margin-bottom:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <span style="font-size:12px;color:var(--t3)">비교:</span>
     <button class="collect-btn" onclick="setTodayCompare('yesterday')" id="todayCmpYd" style="padding:4px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">전일</button>
     <button class="collect-btn" onclick="setTodayCompare('lastWeek')" id="todayCmpLw" style="padding:4px 12px;font-size:11px">전주 동요일</button>
     <button class="collect-btn" onclick="setTodayCompare('none')" id="todayCmpNone" style="padding:4px 12px;font-size:11px">비교 없음</button>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+  <div class="g3-chart" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
     <div class="cd"><div class="ct">시간대별 매출</div><canvas id="todayHourlySales"></canvas></div>
     <div class="cd"><div class="ct">시간대별 구매자수</div><canvas id="todayHourlyBuyers"></canvas></div>
     <div class="cd"><div class="ct">시간대별 주문수</div><canvas id="todayHourlyOrders"></canvas></div>
@@ -220,7 +251,7 @@ canvas{max-height:300px}
 <div id="tab-products" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">상품분석</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">기간별 상품/카테고리 매출·이익 순위</p></div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <button class="collect-btn" onclick="setPagePeriod('prod','today')" style="padding:4px 10px;font-size:11px">금일</button>
       <button class="collect-btn" onclick="setPagePeriod('prod','yesterday')" style="padding:4px 10px;font-size:11px">전일</button>
       <button class="collect-btn" onclick="setPagePeriod('prod','thisWeek')" style="padding:4px 10px;font-size:11px">금주</button>
@@ -276,7 +307,7 @@ canvas{max-height:300px}
 <div id="tab-inventory" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">재고관리</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">엑셀 업로드 → 주문 대조 → 예상재고 산출</p></div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <input type="date" id="invBaseDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none" title="재고 기준일"><label class="collect-btn" style="cursor:pointer"><span class="ic-sync">📁</span> 재고 업로드<input type="file" id="invFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInventory(this)"></label>
       <label class="collect-btn" style="cursor:pointer;background:var(--amb);border-color:var(--amb);color:#fff"><span class="ic-sync">💰</span> 원가파일<input type="file" id="ecountFileInput" accept=".xlsx,.xls" style="display:none" onchange="uploadEcountFile(this)"></label>
       <span id="ecountStatus" style="font-size:11px;color:var(--t3)"></span>
