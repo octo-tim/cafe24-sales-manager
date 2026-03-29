@@ -376,9 +376,15 @@ app.post('/api/ecount/upload', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
     const items = req.body.items || req.body;
+    const append = req.body.append === true; // append=true면 기존 데이터 유지
     if (!Array.isArray(items) || !items.length) return res.json({ success: false, error: '데이터 없음' });
-    const result = orderDB.saveEcountProducts(items);
-    res.json({ success: true, data: result });
+    if (append) {
+      const result = orderDB.appendEcountProducts(items);
+      res.json({ success: true, data: result });
+    } else {
+      const result = orderDB.saveEcountProducts(items);
+      res.json({ success: true, data: result });
+    }
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 

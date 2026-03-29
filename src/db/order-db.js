@@ -418,6 +418,23 @@ class OrderDB {
     return { byBarcode, byCode, count: rows.length };
   }
 
+  /** 이카운트 상품 추가 저장 (기존 유지, 중복 무시) */
+  appendEcountProducts(items) {
+    if (!items?.length) return { inserted: 0 };
+    const stmt = this.db.prepare('INSERT OR IGNORE INTO ecount_products (item_code, barcode, item_name, option_name, cost_price, sell_price, category, supplier) VALUES (?,?,?,?,?,?,?,?)');
+    let cnt = 0;
+    for (const it of items) {
+      try {
+        stmt.run([it.code||'', it.barcode||'', it.name||'', it.option||'', it.cost||0, it.sell||0, it.category||'', it.supplier||'']);
+        cnt++;
+      } catch(e) {}
+    }
+    stmt.free();
+    this._persist();
+    console.log(`[DB] 이카운트 추가 ${cnt}건`);
+    return { inserted: cnt };
+  }
+
   close() { this._persist(); if(this._saveInterval)clearInterval(this._saveInterval); }
 }
 
