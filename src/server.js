@@ -388,6 +388,41 @@ app.post('/api/ecount/upload', (req, res) => {
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+/** POST /api/ecount/upload-xlsx — 이카운트 엑셀 직접 업로드 */
+app.post('/api/ecount/upload-xlsx', require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 50*1024*1024 } }).single('file'), (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  if (!req.file) return res.status(400).json({ success: false, error: '파일 없음' });
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    // 헤더 찾기 (품목코드가 있는 행)
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      if (rows[i] && rows[i].some(c => String(c||'').includes('품목코드'))) { headerIdx = i; break; }
+    }
+    const items = [];
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || !r[0]) continue;
+      const cost = parseFloat(String(r[4]||'0').replace(/,/g,'')) || 0;
+      const sell = parseFloat(String(r[5]||'0').replace(/,/g,'')) || 0;
+      items.push({
+        code: String(r[0]||'').trim(),
+        barcode: String(r[1]||'').trim(),
+        name: String(r[2]||'').trim(),
+        option: String(r[3]||'').trim(),
+        cost: cost,
+        sell: sell,
+        category: String(r[6]||'').trim(),
+        supplier: String(r[9]||'').trim()
+      });
+    }
+    const result = orderDB.saveEcountProducts(items);
+    res.json({ success: true, data: { ...result, totalRows: rows.length, parsed: items.length } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 /** GET /api/ecount/stats — 이카운트 상품 통계 */
 app.get('/api/ecount/stats', (req, res) => {
   if (!dbReady) return res.json({ success: true, data: { count: 0 } });
