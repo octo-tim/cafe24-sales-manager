@@ -1455,7 +1455,7 @@ async function loadTodayHourlyCharts(today) {
   
   // 매출 차트
   var salesDs = [{label:'금일',data:todayData.sales,backgroundColor:'#3266ad50',borderColor:'#3266ad',borderWidth:1.5}];
-  if (cmpData) salesDs.push({label:cmpLabel,data:cmpData.sales,backgroundColor:'transparent',borderColor:'#3266ad',borderWidth:1,borderDash:[4,4],pointRadius:0});
+  if (cmpData) salesDs.push({label:cmpLabel,data:cmpData.sales,type:'line',borderColor:'#ef4444',backgroundColor:'transparent',fill:false,tension:.3,pointRadius:0,borderWidth:2,borderDash:[5,3]});
   makeChart('todayHourlySales',{type:'bar',data:{labels:labels,datasets:salesDs},options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{size:10},usePointStyle:true,pointStyle:'rect'}}},scales:{y:{ticks:{callback:function(v){return fK(v)},font:{size:10}}},x:xOpts}}});
   
   // 구매자 차트
