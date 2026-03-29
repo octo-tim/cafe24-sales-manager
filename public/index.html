@@ -1297,4 +1297,153 @@ function renderPages(d){var el=document.getElementById('anaPageBody');if(!el)ret
 function renderKeywords(d){var el=document.getElementById('anaKeywordBody');if(!el)return;if(d&&d._error){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--amb);font-size:12px">'+d._error+'</div>';return}var rows=[];if(Array.isArray(d)){var total=d.reduce(function(s,x){return s+(x.visit_count||0)},0);d.slice(0,15).forEach(function(x,i){var rate=total>0?Math.round((x.visit_count||0)/total*1000)/10:0;rows.push([(i+1)+'',x.keyword||'-',fN(x.visit_count||0),rate+'%'])})}el.innerHTML=_at([['#','center'],['키워드','left'],['방문수','right'],['비율','right']],rows)}
 function renderAdKeywords(d){var el=document.getElementById('anaAdKwBody');if(!el)return;if(d&&d._error){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--amb);font-size:12px">'+d._error+'</div>';return}var rows=[];if(Array.isArray(d))d.slice(0,15).forEach(function(x,i){rows.push([(i+1)+'',x.ad||'-',x.keyword||'-',fN(x.order_count||0),fW(x.order_amount||0)])});el.innerHTML=_at([['#','center'],['매체','left'],['키워드','left'],['주문','right'],['매출액','right']],rows)}
 (function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=new Date().toISOString().substring(0,10);if(s){var d=new Date();d.setDate(d.getDate()-30);s.value=d.toISOString().substring(0,10)}loadTodayTab()})();
+
+async function loadInventory() {
+  // KPI 로드
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/stats');
+    var j = await r.json();
+    if (j.success && j.data) {
+      var d = j.data;
+      document.getElementById('invKpi').innerHTML =
+        kpiCard('전체 상품', fN(d.totalProducts)+'종', '', '', '') +
+        kpiCard('총 재고', fN(d.totalStock)+'개', '', '', '') +
+        kpiCard('재고 보유', fN(d.inStock)+'종', '', '', '') +
+        kpiCard('품절', fN(d.outOfStock)+'종', '', '', '');
+    }
+  } catch(e) {
+    document.getElementById('invKpi').innerHTML = kpiCard('상태','재고 미업로드','','','엑셀 파일을 업로드하세요') + kpiCard('','','','','') + kpiCard('','','','','') + kpiCard('','','','','');
+  }
+  // 재고현황 날짜 기본값
+  var ssd = document.getElementById('stockStartDate');
+  var sed = document.getElementById('stockEndDate');
+  var bd = document.getElementById('invBaseDate');
+  if (bd && !bd.value) bd.value = todayStr();
+  if (ssd && !ssd.value) ssd.value = todayStr();
+  if (sed && !sed.value) sed.value = todayStr();
+  // 재고 목록
+  loadInventoryList();
+  // 필터 목록 로드
+  loadStockFilters();
+  // 이카운트 상태
+  loadEcountStatus();
+  // 재고현황 로드
+  loadStockStatus();
+}
+
+async function uploadEcountFile(input) {
+  if (!input.files[0]) return;
+  var statusEl = document.getElementById('ecountStatus');
+  if (statusEl) statusEl.textContent = '업로드 중...';
+  var fd = new FormData();
+  fd.append('file', input.files[0]);
+  try {
+    var r = await fetch(API_BASE + '/api/ecount/upload-xlsx', { method: 'POST', body: fd });
+    var j = await r.json();
+    if (j.success) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--grn)">✅ ' + fN(j.data.inserted) + '종 원가 적용</span>';
+      alert('이카운트 원가 적용 완료: ' + fN(j.data.inserted) + '종 저장');
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (j.error||'실패') + '</span>';
+      alert('업로드 실패: ' + (j.error||''));
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    alert('업로드 오류: ' + e.message);
+  }
+  input.value = '';
+}
+
+async function loadEcountStatus() {
+  try {
+    var r = await fetch(API_BASE + '/api/ecount/stats');
+    var j = await r.json();
+    var el = document.getElementById('ecountStatus');
+    if (el && j.success && j.data.count > 0) el.textContent = '원가 ' + fN(j.data.withCost) + '종 적용중';
+  } catch(e) {}
+}
+
+async function uploadInventory(input) {
+  if (!input.files[0]) return;
+  var bd = document.getElementById('invBaseDate')?.value;
+  if (!bd) { alert('재고 기준일을 선택하세요.'); input.value=''; return; }
+  var fd = new FormData();
+  fd.append('file', input.files[0]);
+  fd.append('base_date', bd);
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/upload', { method: 'POST', body: fd });
+    var j = await r.json();
+    if (j.success) {
+      alert('재고 업로드 완료: ' + j.data.inserted + '종 저장');
+      loadInventory();
+    } else { alert('업로드 실패: ' + (j.error || '')); }
+  } catch(e) { alert('업로드 오류: ' + e.message); }
+  input.value = '';
+}
+
+async function loadInventoryList() {
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/list?stock_only=true&limit=200');
+    var j = await r.json();
+    var el = document.getElementById('invBody');
+    if (!el) return;
+    if (!j.success || !j.data?.length) { el.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">재고 데이터를 업로드하세요</td></tr>'; return; }
+    var h = '';
+    j.data.forEach(function(it) {
+      h += '<tr><td style="font-size:11px">'+it.product_code+'</td><td>'+it.product_name+'</td><td style="color:var(--t2)">'+it.option_name+'</td><td>'+it.category+'</td><td style="color:var(--t2)">'+it.supplier+'</td><td style="text-align:right">'+fN(it.cost_price)+'</td><td style="text-align:right">'+fN(it.sell_price)+'</td><td style="text-align:right;font-weight:600">'+(it.stock_qty > 0 ? fN(it.stock_qty) : '<span style="color:var(--red)">0</span>')+'</td></tr>';
+    });
+    el.innerHTML = h;
+  } catch(e) {}
+}
+
+async function loadStockFilters() {
+  var date = document.getElementById('stockEndDate')?.value || todayStr();
+  try {
+    var r = await fetch(API_BASE + '/api/inventory-mgmt/stock-filters');
+    var j = await r.json();
+    if (j.success && j.data) {
+      var supEl = document.getElementById('invSupplier');
+      var catEl = document.getElementById('invCategory');
+      if (supEl) {
+        var curSup = supEl.value;
+        supEl.innerHTML = '<option value="">전체 공급처</option>' + j.data.suppliers.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
+        if (curSup) supEl.value = curSup;
+      }
+      if (catEl) {
+        var curCat = catEl.value;
+        catEl.innerHTML = '<option value="">전체 카테고리</option>' + j.data.categories.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+        if (curCat) catEl.value = curCat;
+      }
+    }
+  } catch(e) {}
+}
+// ═══ 상품분석 ═══
+
+async function loadProductAnalysis() {
+  var sd = document.getElementById('prodStart');
+  var ed = document.getElementById('prodEnd');
+  if (!sd.value) { var d=new Date(); d.setDate(d.getDate()-30); sd.value=d.toISOString().substring(0,10); }
+  if (!ed.value) ed.value = todayStr();
+  try {
+    var r = await fetch(API_BASE+'/api/inventory-mgmt/margin?start_date='+sd.value+'&end_date='+ed.value);
+    var j = await r.json();
+    if (!j.success) return;
+    window._prodData = j.data;
+    var s = j.data.summary;
+    // KPI
+    var kpi = document.getElementById('prodKpi');
+    if (kpi) {
+      kpi.innerHTML =
+        kpiCard('총 매출', fW(s.totalRevenue), '', '', sd.value+'~'+ed.value) +
+        kpiCard('매칭 원가', fW(s.matchedCost), '', '', '매칭 '+s.matchedProducts+'종') +
+        kpiCard('매칭 이익', fW(s.matchedMargin), '', '', '매출-원가') +
+        kpiCard('이익률', s.matchedMarginRate+'%', '', '', '미매칭 '+s.unmatchedProducts+'종');
+    }
+    // 카테고리 분석
+    renderCategoryRanks(j.data.items);
+    // 상품 테이블
+    renderProductTable();
+  } catch(e) { console.log('[Prod]', e.message); }
+}
+
 </script>
