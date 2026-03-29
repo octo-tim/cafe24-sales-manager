@@ -452,6 +452,25 @@ app.post('/api/ecount/upload-xlsx', require('multer')({ storage: require('multer
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+/** POST /api/ecount/seed — 이카운트 데이터 시드 (chunk 단위) */
+app.post('/api/ecount/seed', (req, res) => {
+  if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
+  try {
+    const { items, reset } = req.body;
+    if (!Array.isArray(items)) return res.json({ success: false, error: 'items 필요' });
+    if (reset) orderDB.db.run('DELETE FROM ecount_products');
+    const stmt = orderDB.db.prepare('INSERT OR IGNORE INTO ecount_products (item_code, barcode, item_name, option_name, cost_price, sell_price, category, supplier) VALUES (?,?,?,?,?,?,?,?)');
+    let cnt = 0;
+    for (const it of items) {
+      try { stmt.run([it.code||'', it.barcode||'', it.name||'', it.option||'', it.cost||0, it.sell||0, it.category||'', it.supplier||'']); cnt++; } catch(e) {}
+    }
+    stmt.free();
+    orderDB._persist();
+    const total = orderDB.db.exec('SELECT COUNT(*) FROM ecount_products')[0]?.values?.[0]?.[0] || 0;
+    res.json({ success: true, data: { inserted: cnt, total } });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
 /** GET /api/ecount/stats — 이카운트 상품 통계 */
 app.get('/api/ecount/stats', (req, res) => {
   if (!dbReady) return res.json({ success: true, data: { count: 0 } });
