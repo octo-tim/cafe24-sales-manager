@@ -92,6 +92,45 @@ canvas{max-height:300px}
 <div class="page">
 
 <!-- ═══ TAB: 주문 수집 ═══ -->
+<!-- ═══ TAB: Today ═══ -->
+<div id="tab-today">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:20px;font-weight:700">Today <span id="todayDate" style="font-size:13px;font-weight:400;color:var(--t3)"></span></h2>
+      <p style="font-size:12px;color:var(--t3);margin-top:2px">금일 실시간 현황</p>
+    </div>
+    <button class="collect-btn" onclick="loadTodayTab()" style="padding:5px 14px;font-size:11px">새로고침</button>
+  </div>
+  <div class="g4" id="todayKpi" style="margin-bottom:16px"></div>
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+    <span style="font-size:12px;color:var(--t3)">비교:</span>
+    <button class="collect-btn" onclick="setTodayCompare('yesterday')" id="todayCmpYd" style="padding:4px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">전일</button>
+    <button class="collect-btn" onclick="setTodayCompare('lastWeek')" id="todayCmpLw" style="padding:4px 12px;font-size:11px">전주 동요일</button>
+    <button class="collect-btn" onclick="setTodayCompare('none')" id="todayCmpNone" style="padding:4px 12px;font-size:11px">비교 없음</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="cd"><div class="ct">시간대별 매출</div><canvas id="todayHourlySales"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 구매자수</div><canvas id="todayHourlyBuyers"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 주문수</div><canvas id="todayHourlyOrders"></canvas></div>
+  </div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">주문 건수 TOP 10</div><div id="todayQtyTop" style="max-height:380px;overflow-y:auto"></div></div>
+    <div class="cd"><div class="ct">주문 금액 TOP 10</div><div id="todayRevTop" style="max-height:380px;overflow-y:auto"></div></div>
+  </div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">금일 유입경로 TOP 10</div><canvas id="todayRefChart" style="max-height:200px"></canvas><div id="todayRefTable" style="margin-top:10px"></div></div>
+  </div>
+  <div class="cd">
+    <div class="ct">최근 주문 (최신 20건)</div>
+    <div style="max-height:350px;overflow-y:auto">
+      <table>
+        <thead><tr><th>시간</th><th>주문번호</th><th>상품명</th><th style="text-align:right">수량</th><th style="text-align:right">금액</th><th>상태</th></tr></thead>
+        <tbody id="todayRecentOrders"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div id="tab-collector" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">주문 수집</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">30분마다 자동 수집 · 수동 최대 30일 수집</p></div>
@@ -1257,5 +1296,5 @@ function renderCarts(d){var el=document.getElementById('anaCartBody');if(!el)ret
 function renderPages(d){var el=document.getElementById('anaPageBody');if(!el)return;if(d&&d._error){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--amb);font-size:12px">'+d._error+'</div>';return}var rows=[];if(Array.isArray(d))d.slice(0,20).forEach(function(x,i){var t=x.page_title||x.page_url||x.url||'-';rows.push([(i+1)+'',t.substring(0,40),fN(x.pageview_count||x.count||0)])});el.innerHTML=_at([['#','center'],['페이지','left'],['조회수','right']],rows)}
 function renderKeywords(d){var el=document.getElementById('anaKeywordBody');if(!el)return;if(d&&d._error){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--amb);font-size:12px">'+d._error+'</div>';return}var rows=[];if(Array.isArray(d)){var total=d.reduce(function(s,x){return s+(x.visit_count||0)},0);d.slice(0,15).forEach(function(x,i){var rate=total>0?Math.round((x.visit_count||0)/total*1000)/10:0;rows.push([(i+1)+'',x.keyword||'-',fN(x.visit_count||0),rate+'%'])})}el.innerHTML=_at([['#','center'],['키워드','left'],['방문수','right'],['비율','right']],rows)}
 function renderAdKeywords(d){var el=document.getElementById('anaAdKwBody');if(!el)return;if(d&&d._error){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--amb);font-size:12px">'+d._error+'</div>';return}var rows=[];if(Array.isArray(d))d.slice(0,15).forEach(function(x,i){rows.push([(i+1)+'',x.ad||'-',x.keyword||'-',fN(x.order_count||0),fW(x.order_amount||0)])});el.innerHTML=_at([['#','center'],['매체','left'],['키워드','left'],['주문','right'],['매출액','right']],rows)}
+(function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=new Date().toISOString().substring(0,10);if(s){var d=new Date();d.setDate(d.getDate()-30);s.value=d.toISOString().substring(0,10)}loadTodayTab()})();
 </script>
-</body></html>
