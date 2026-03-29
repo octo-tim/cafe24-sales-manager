@@ -84,8 +84,6 @@ canvas{max-height:300px}
     <button onclick="showTab('sales',this)">매출 분석</button>
     <button onclick="showTab('products',this)">상품분석</button>
     <button onclick="showTab('inventory',this)">재고관리</button>
-    <button onclick="showTab('matching',this)">상품매칭</button>
-    <button onclick="showTab('matching',this)">상품매칭</button>
     <button onclick="showTab('analytics',this)">접속통계</button>
     <button onclick="location.href='/setup.html'">설정</button>
   </div>
@@ -261,6 +259,8 @@ canvas{max-height:300px}
     <div><h2 style="font-size:20px;font-weight:700">재고관리</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">엑셀 업로드 → 주문 대조 → 예상재고 산출</p></div>
     <div style="display:flex;align-items:center;gap:8px">
       <input type="date" id="invBaseDate" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none" title="재고 기준일"><label class="collect-btn" style="cursor:pointer"><span class="ic-sync">📁</span> 재고 업로드<input type="file" id="invFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInventory(this)"></label>
+      <label class="collect-btn" style="cursor:pointer;background:var(--amb);border-color:var(--amb);color:#fff"><span class="ic-sync">💰</span> 원가파일<input type="file" id="ecountFileInput" accept=".xlsx,.xls" style="display:none" onchange="uploadEcountFile(this)"></label>
+      <span id="ecountStatus" style="font-size:11px;color:var(--t3)"></span>
     </div>
   </div>
 
@@ -328,87 +328,6 @@ canvas{max-height:300px}
 </div>
 
 </div>
-<!-- TAB: 상품매칭 -->
-<div id="tab-matching" class="hide">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-    <div><h2 style="font-size:20px;font-weight:700">상품매칭</h2><p style="font-size:12px;color:var(--t2);margin-top:2px">주문 수집 상품 ↔ 재고(엑셀) 상품 매칭 현황</p></div>
-    <button class="collect-btn" onclick="loadMatchingTab()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">새로고침</button>
-  </div>
-  <div class="g4" id="matchKpi" style="margin-bottom:16px"></div>
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">매칭 유형별 분포</div><canvas id="matchTypeChart"></canvas></div>
-    <div class="cd"><div class="ct">매칭률 (매출 기준)</div><canvas id="matchRevenueChart"></canvas></div>
-  </div>
-  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <select id="matchFilter" onchange="renderMatchingTable()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-      <option value="all">전체</option>
-      <option value="matched">매칭됨</option>
-      <option value="unmatched">미매칭</option>
-      <option value="code">코드매칭</option>
-      <option value="barcode">바코드매칭</option>
-      <option value="exact">상품명매칭</option>
-      <option value="partial">부분매칭</option>
-    </select>
-    <input type="text" id="matchSearch" placeholder="상품명 검색" oninput="renderMatchingTable()" style="width:200px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-    <span id="matchCount" style="font-size:11px;color:var(--t3)"></span>
-  </div>
-  <div class="cd">
-    <div style="max-height:500px;overflow-y:auto">
-      <table>
-        <thead><tr>
-          <th>#</th>
-          <th>주문 상품명</th>
-          <th>매칭 재고 상품</th>
-          <th style="text-align:right">수량</th>
-          <th style="text-align:right">매출</th>
-          <th style="text-align:right">원가</th>
-          <th style="text-align:right">이익률</th>
-          <th>매칭</th>
-        </tr></thead>
-        <tbody id="matchTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- TAB: 상품매칭 -->
-<div id="tab-matching" class="hide">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-    <div><h2 style="font-size:20px;font-weight:700">상품매칭 현황</h2><p style="font-size:12px;color:var(--t2);margin-top:2px">주문수집 상품 ↔ 재고 엑셀 상품 매칭 결과</p></div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input type="date" id="matchStart" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
-      <span style="color:var(--t3)">~</span>
-      <input type="date" id="matchEnd" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11px;font-family:inherit;outline:none">
-      <button class="collect-btn" onclick="loadMatchingTab()" style="padding:5px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">조회</button>
-    </div>
-  </div>
-  <div class="g4" id="matchKpi" style="margin-bottom:16px"></div>
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">매칭 현황 요약</div><canvas id="matchPieChart"></canvas><div id="matchPieLegend" style="margin-top:10px"></div></div>
-    <div class="cd"><div class="ct">매칭율 vs 매출 비중</div><div id="matchSummaryDetail" style="padding:10px"></div></div>
-  </div>
-  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button class="collect-btn" onclick="filterMatching('all')" id="matchFilterAll" style="padding:4px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">전체</button>
-    <button class="collect-btn" onclick="filterMatching('code')" id="matchFilterCode" style="padding:4px 12px;font-size:11px">코드매칭</button>
-    <button class="collect-btn" onclick="filterMatching('none')" id="matchFilterNone" style="padding:4px 12px;font-size:11px">미매칭</button>
-    <input type="text" id="matchSearch" placeholder="상품명 검색..." oninput="renderMatchingTable()" style="width:220px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-  </div>
-  <div class="cd">
-    <div class="ct">상품별 매칭 상세<span id="matchTableCount" style="font-size:11px;color:var(--t3);font-weight:400;margin-left:8px"></span></div>
-    <div style="max-height:500px;overflow-y:auto">
-      <table>
-        <thead><tr>
-          <th>#</th><th>주문 상품명</th><th>상품번호</th>
-          <th style="text-align:right">수량</th><th style="text-align:right">매출</th>
-          <th>매칭상태</th><th>재고 상품명</th>
-          <th style="text-align:right">원가</th><th style="text-align:right">이익률</th>
-        </tr></thead>
-        <tbody id="matchTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
 <!-- TAB: 접속통계 -->
 <div id="tab-analytics" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
@@ -634,7 +553,7 @@ function renderHistory(list) {
 
 function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['overview','collector','sales','products','inventory','matching','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='matching')loadMatchingTab();if(id==='matching')loadMatchingTab();if(id==='analytics')initAnalyticsTab()}
+function showTab(id,btn){['overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
@@ -948,10 +867,42 @@ async function loadInventory() {
   loadInventoryList();
   // 필터 목록 로드
   loadStockFilters();
+  // 이카운트 상태
+  loadEcountStatus();
   // 재고현황 로드
   loadStockStatus();
 }
 
+async function uploadEcountFile(input) {
+  if (!input.files[0]) return;
+  var statusEl = document.getElementById('ecountStatus');
+  if (statusEl) statusEl.textContent = '업로드 중...';
+  var fd = new FormData();
+  fd.append('file', input.files[0]);
+  try {
+    var r = await fetch(API_BASE + '/api/ecount/upload-xlsx', { method: 'POST', body: fd });
+    var j = await r.json();
+    if (j.success) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--grn)">✅ ' + fN(j.data.inserted) + '종 원가 적용</span>';
+      alert('이카운트 원가 적용 완료: ' + fN(j.data.inserted) + '종 저장');
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (j.error||'실패') + '</span>';
+      alert('업로드 실패: ' + (j.error||''));
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    alert('업로드 오류: ' + e.message);
+  }
+  input.value = '';
+}
+async function loadEcountStatus() {
+  try {
+    var r = await fetch(API_BASE + '/api/ecount/stats');
+    var j = await r.json();
+    var el = document.getElementById('ecountStatus');
+    if (el && j.success && j.data.count > 0) el.textContent = '원가 ' + fN(j.data.withCost) + '종 적용중';
+  } catch(e) {}
+}
 async function uploadInventory(input) {
   if (!input.files[0]) return;
   var bd = document.getElementById('invBaseDate')?.value;
@@ -1261,20 +1212,6 @@ function loadProductAnalytics(){
     });
     el.innerHTML=_at([['#','center'],['상품명','left'],['조회수','right']],rows);
   }).catch(function(){});
-}
-function loadMatchingTab(){
-  var sd=document.getElementById('matchStart');
-  var ed=document.getElementById('matchEnd');
-  if(!sd.value){var d=new Date();d.setDate(d.getDate()-30);sd.value=d.toISOString().substring(0,10)}
-  if(!ed.value)ed.value=todayStr();
-  fetch(API_BASE+'/api/inventory-mgmt/margin?start_date='+sd.value+'&end_date='+ed.value).then(function(r){return r.json()}).then(function(j){
-    if(!j.success)return;
-    _matchData=j.data;
-    _matchFilter='all';
-    renderMatchingKpi();
-    renderMatchingChart();
-    renderMatchingTable();
-  }).catch(function(e){console.log('[Match]',e.message)});
 }
 function renderMatchingKpi(){
   if(!_matchData)return;
