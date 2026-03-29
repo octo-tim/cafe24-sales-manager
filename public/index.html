@@ -576,6 +576,8 @@ Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaul
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
 function kpiCard(l,v,t,d,s){return'<div class="kp"><div class="lb">'+l+'</div><div class="vl">'+v+'</div>'+(t?'<div class="tr '+d+'">'+t+'</div>':'')+'<div class="sb">'+(s||'')+'</div></div>'}
+var salesChannel = 'all';
+var chMeta = {"카페24":{color:'#3266ad'},"쿠팡":{color:'#e24b4a'},"네이버":{color:'#1d9e75'}};
 function setSalesChannel(ch, btn) {
   salesChannel = ch;
   document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('on')});
