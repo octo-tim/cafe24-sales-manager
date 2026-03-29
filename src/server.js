@@ -572,17 +572,21 @@ app.get('/api/auth/refresh-token', (req, res) => {
 app.post('/api/db/reset', async (req, res) => {
   try {
     const fs = require('fs');
+    const initSqlJs = require('sql.js');
     const dbPath = process.env.RAILWAY_ENVIRONMENT ? '/app/persistent/orders.db' : './data/orders.db';
+    // 기존 파일 삭제
     if (fs.existsSync(dbPath)) {
       fs.unlinkSync(dbPath);
-      console.log('[DB] 손상된 DB 삭제:', dbPath);
+      console.log('[DB] 기존 DB 파일 삭제:', dbPath);
     }
-    // 새 DB 재초기화
-    const OrderDB = require('./db/order-db');
-    const newDB = new OrderDB();
-    await newDB.ensureReady();
-    // 전역 교체는 서버 재시작 필요
-    res.json({ success: true, message: 'DB 삭제 완료. 서버 재시작이 필요합니다.' });
+    // 메모리 DB도 새로 생성
+    const SQL = await initSqlJs();
+    orderDB.db = new SQL.Database();
+    orderDB._migrate();
+    orderDB._persist();
+    const newSize = fs.existsSync(dbPath) ? Math.round(fs.statSync(dbPath).size/1024) + 'KB' : '0KB';
+    console.log('[DB] 새 DB 생성 완료:', newSize);
+    res.json({ success: true, message: 'DB 리셋 완료 (새 DB: ' + newSize + ')' });
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
 app.get('/api/debug/salesreport', async (req, res) => {
