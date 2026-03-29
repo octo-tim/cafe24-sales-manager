@@ -354,6 +354,7 @@ class Cafe24Client {
     const qs = Object.keys(params).length ? '?' + querystring.stringify(params) : '';
     const data = await this._apiRequest({ method:'GET', path:ep+qs });
     this._cache.set(cacheKey, { data, expires:Date.now()+CACHE_TTL_MS });
+    if (this._cache.size > 500) { const first = this._cache.keys().next().value; this._cache.delete(first); }
     return data;
   }
 

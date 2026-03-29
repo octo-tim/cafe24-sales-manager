@@ -701,32 +701,6 @@ app.post('/api/db/reset', async (req, res) => {
     res.json({ success: true, message: 'DB 리셋 완료 (새 DB: ' + newSize + ')' });
   } catch(e) { res.json({ success: false, error: e.message }); }
 });
-app.get('/api/debug/salesreport', async (req, res) => {
-  try {
-    const { start_date, end_date, path } = req.query;
-    const sd = start_date || '2026-03-28';
-    const ed = end_date || '2026-03-28';
-    // 여러 경로 시도
-    const paths = path ? [path] : [
-      '/api/v2/admin/salesreport',
-      '/api/v2/admin/reports/salesvolume',
-      '/api/v2/admin/reports/sales',
-      '/api/v2/admin/dashboard',
-      '/api/v2/admin/reports/dailysales'
-    ];
-    const results = [];
-    for (const p of paths) {
-      try {
-        const fullPath = p + (p.includes('?') ? '&' : '?') + 'start_date=' + sd + '&end_date=' + ed;
-        const r = await cafe24._apiRequest({ method:'GET', path: fullPath });
-        results.push({ path: p, success: true, data: JSON.stringify(r).substring(0,500) });
-      } catch(e) {
-        results.push({ path: p, success: false, error: e.message.substring(0,200) });
-      }
-    }
-    res.json({ success: true, results });
-  } catch(e) { res.json({ success: false, error: e.message }); }
-});
 app.get('/api/db/analyze', (req, res) => {
   if (!dbReady) return res.json({ success: false, error: 'DB 미준비' });
   try {
@@ -737,10 +711,6 @@ app.get('/api/db/analyze', (req, res) => {
     const tableInfo = orderDB.db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values?.map(r=>r[0]) || [];
     res.json({ success: true, data: { totalRows, rawJsonTotalBytes: rawSize, rawJsonMB: Math.round(rawSize/1024/1024), nonEmptyRawRows: nonEmptyRaw, avgRawBytes: avgRowSize, tables: tableInfo } });
   } catch(e) { res.json({ success: false, error: e.message }); }
-});
-app.get('/api/debug/test', async (req, res) => {
-  try { const https=require('https'); const token=cafe24.tokens?cafe24.tokens.access_token:null; const m=cafe24.config.mallId; const v=cafe24.config.apiVersion; const r=await new Promise((ok,no)=>{const o={hostname:m+'.cafe24api.com',path:'/api/v2/admin/orders?limit=1',method:'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Cafe24-Api-Version':v}};const q=https.request(o,rs=>{let d='';rs.on('data',c=>d+=c);rs.on('end',()=>ok({status:rs.statusCode,body:d.substring(0,500)}))});q.on('error',no);q.end()}); res.json(r); }
-  catch(e){res.json({error:e.message})}
 });
 
 

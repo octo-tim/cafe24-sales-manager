@@ -122,25 +122,6 @@ class OrderDB {
   //  재고 관리
   // ═══════════════════════════════════════════════
 
-  /** 이카운트 상품 원가 저장 */
-  saveEcountProducts(items) {
-    if (!items?.length) return { inserted: 0 };
-    this.db.run('DELETE FROM ecount_products');
-    const stmt = this.db.prepare('INSERT OR REPLACE INTO ecount_products (item_code, barcode, item_name, option_name, cost_price, sell_price, category, supplier) VALUES (?,?,?,?,?,?,?,?)');
-    let cnt = 0;
-    for (const it of items) {
-      try {
-        stmt.run([it.code||'', it.barcode||'', it.name||'', it.option||'', it.cost||0, it.sell||0, it.category||'', it.supplier||'']);
-        cnt++;
-      } catch(e) {}
-    }
-    stmt.free();
-    this._persist();
-    console.log('[DB] 이카운트 상품 ' + cnt + '건 저장');
-    return { inserted: cnt };
-  }
-
-  /** 이카운트 원가 매핑 테이블 조회 (품목코드→원가, 바코드→원가) */
   /** 엑셀 파싱된 재고 데이터 저장 (전체 교체) */
   saveInventory(items, baseDate = '') {
     if (!items?.length) return { inserted: 0 };
