@@ -129,7 +129,6 @@ canvas{max-height:300px}
   <!-- 유입경로 TOP10 + 주문상태 분포 -->
   <div class="g2" style="margin-bottom:16px">
     <div class="cd"><div class="ct">금일 유입경로 TOP 10</div><canvas id="todayRefChart" style="max-height:200px"></canvas><div id="todayRefTable" style="margin-top:10px"></div></div>
-    <div class="cd"><div class="ct">금일 주문 상태 분포</div><canvas id="todayStatusChart" style="max-height:200px"></canvas><div id="todayStatusTable" style="margin-top:10px"></div></div>
   </div>
 
   <!-- 실시간 최근 주문 -->
@@ -1357,7 +1356,6 @@ async function loadTodayTab() {
     loadTodayHourlyCharts(today),
     loadTodayTopProducts(today),
     loadTodayReferers(today),
-    loadTodayStatus(today),
     loadTodayRecentOrders(today)
   ]);
 }
@@ -1527,47 +1525,6 @@ async function loadTodayReferers(today) {
       el.innerHTML = h;
     }
   } catch(e) { console.log('[Today] Referers:', e.message); }
-}
-
-async function loadTodayStatus(today) {
-  try {
-    var r = await fetch(API_BASE+'/api/db/orders?limit=500');
-    var j = await r.json();
-    var orders = (j.data||[]).filter(function(o){return o.order_date===today});
-    
-    var statuses = {};
-    orders.forEach(function(o){
-      var s = o.status || 'unknown';
-      // 상태 한글 변환
-      var label = s;
-      if (s.startsWith('N')) label = '입금전';
-      else if (s === 'paid' || s.startsWith('P')) label = '결제완료';
-      else if (s.startsWith('prepare')) label = '상품준비';
-      else if (s.startsWith('ship') || s === 'shipping') label = '배송중';
-      else if (s.startsWith('finish') || s === 'delivered') label = '배송완료';
-      else if (s.startsWith('C') || s === 'cancel') label = '취소';
-      else if (s.startsWith('R') || s === 'return') label = '반품';
-      else if (s === 'CANCELED') label = '취소';
-      statuses[label] = (statuses[label]||0) + 1;
-    });
-    
-    var labels = Object.keys(statuses);
-    var vals = Object.values(statuses);
-    var colors = ['#22c55e','#3266ad','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#f97316','#6366f1'];
-    
-    makeChart('todayStatusChart',{type:'doughnut',data:{labels:labels,datasets:[{data:vals,backgroundColor:colors.slice(0,labels.length),borderWidth:0}]},options:{responsive:true,cutout:'60%',plugins:{legend:{display:false}}}});
-    
-    var el = document.getElementById('todayStatusTable');
-    if (el) {
-      var total = vals.reduce(function(s,v){return s+v},0);
-      var h = '';
-      labels.forEach(function(l,i){
-        var rate = total>0?Math.round(vals[i]/total*1000)/10:0;
-        h += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bg3)"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+colors[i]+';margin-right:6px"></span>'+l+'</span><span style="font-weight:600">'+fN(vals[i])+'건 <span style="color:var(--t3);font-weight:400">('+rate+'%)</span></span></div>';
-      });
-      el.innerHTML = h || '<div style="color:var(--t3);font-size:12px;text-align:center;padding:10px">데이터 없음</div>';
-    }
-  } catch(e) { console.log('[Today] Status:', e.message); }
 }
 
 async function loadTodayRecentOrders(today) {
