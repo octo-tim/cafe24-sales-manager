@@ -79,7 +79,8 @@ canvas{max-height:300px}
 <nav>
   <div class="logo"><span class="dot"></span>판매관리<span class="ver">v2.1</span></div>
   <div class="tabs">
-    <button class="on" onclick="showTab('overview',this)">통합 대시보드</button>
+    <button class="on" onclick="showTab('today',this)">Today</button>
+    <button onclick="showTab('overview',this)">통합 대시보드</button>
     <button onclick="showTab('collector',this)">주문 수집</button>
     <button onclick="showTab('sales',this)">매출 분석</button>
     <button onclick="showTab('products',this)">상품분석</button>
@@ -92,7 +93,50 @@ canvas{max-height:300px}
 <div class="page">
 
 <!-- ═══ TAB: 통합 대시보드 ═══ -->
-<div id="tab-overview">
+<!-- ═══ TAB: Today ═══ -->
+<div id="tab-today">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:20px;font-weight:700">Today <span id="todayDate" style="font-size:13px;font-weight:400;color:var(--t3)"></span></h2>
+      <p style="font-size:12px;color:var(--t3);margin-top:2px">금일 실시간 현황</p>
+    </div>
+    <button class="collect-btn" onclick="loadTodayTab()" style="padding:5px 14px;font-size:11px">새로고침</button>
+  </div>
+
+  <!-- KPI 배너 -->
+  <div class="g4" id="todayKpi" style="margin-bottom:16px"></div>
+
+  <!-- 시간대별 매출 + 방문자 차트 -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">시간대별 매출 (30분 단위)</div><canvas id="todaySalesChart"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 방문자수</div><canvas id="todayVisitorChart"></canvas></div>
+  </div>
+
+  <!-- 주문건수 TOP10 + 주문금액 TOP10 -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">주문 건수 TOP 10</div><div id="todayQtyTop" style="max-height:380px;overflow-y:auto"></div></div>
+    <div class="cd"><div class="ct">주문 금액 TOP 10</div><div id="todayRevTop" style="max-height:380px;overflow-y:auto"></div></div>
+  </div>
+
+  <!-- 유입경로 TOP10 + 주문상태 분포 -->
+  <div class="g2" style="margin-bottom:16px">
+    <div class="cd"><div class="ct">금일 유입경로 TOP 10</div><canvas id="todayRefChart" style="max-height:200px"></canvas><div id="todayRefTable" style="margin-top:10px"></div></div>
+    <div class="cd"><div class="ct">금일 주문 상태 분포</div><canvas id="todayStatusChart" style="max-height:200px"></canvas><div id="todayStatusTable" style="margin-top:10px"></div></div>
+  </div>
+
+  <!-- 실시간 최근 주문 -->
+  <div class="cd">
+    <div class="ct">최근 주문 (최신 20건)</div>
+    <div style="max-height:350px;overflow-y:auto">
+      <table>
+        <thead><tr><th>시간</th><th>주문번호</th><th>상품명</th><th style="text-align:right">수량</th><th style="text-align:right">금액</th><th>상태</th></tr></thead>
+        <tbody id="todayRecentOrders"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-overview" class="hide">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div><h2 style="font-size:20px;font-weight:700">멀티채널 통합 현황</h2><p style="font-size:12px;color:var(--t3);margin-top:2px">카페24 · 쿠팡 · 네이버 스마트스토어</p></div>
     <div style="display:flex;align-items:center;gap:10px">
@@ -553,7 +597,7 @@ function renderHistory(list) {
 
 function generateDemoData(days){var channels=[{name:'카페24',color:'#3266ad',base:650000},{name:'쿠팡',color:'#e24b4a',base:480000},{name:'네이버',color:'#1d9e75',base:310000}],dailySales=[],now=new Date();for(var i=days-1;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);var dow=d.getDay(),wk=(dow===0||dow===6)?1.35:1,se=1+Math.sin(i*.15)*.15,entry={date:(d.getMonth()+1)+'/'+d.getDate(),fullDate:d.toISOString().substring(0,10),dow:dow},total=0;channels.forEach(function(ch){var amt=Math.round(ch.base*wk*se*(.85+Math.random()*.3));entry[ch.name]=amt;total+=amt});entry.total=total;dailySales.push(entry)}var totalRevenue=dailySales.reduce(function(s,d){return s+d.total},0),totalOrders=Math.round(totalRevenue/135000);var products=[{name:'프리미엄 유아매트 200',price:189000,cat:'매트'},{name:'폴딩매트 1200',price:219000,cat:'매트'},{name:'폴딩매트 600',price:139000,cat:'매트'},{name:'프리미엄 유아매트 150',price:149000,cat:'매트'},{name:'아기 젖병세척기',price:129000,cat:'세척기'},{name:'실리콘 이유식기 세트',price:39800,cat:'이유식'},{name:'유아 식기건조대',price:59800,cat:'주방'},{name:'방수 턱받이 3종',price:24900,cat:'이유식'},{name:'아기 목욕의자',price:89000,cat:'목욕'},{name:'유모차 정리함',price:35000,cat:'외출'}];var topProducts=products.map(function(p,idx){var qty=Math.round((200-idx*15)*(.8+Math.random()*.4)*days/30),c24=Math.round(qty*.45),cpg=Math.round(qty*.32),nvr=qty-c24-cpg;return{name:p.name,category:p.cat,totalQty:qty,totalRevenue:p.price*qty,'카페24':{qty:c24,revenue:p.price*c24},'쿠팡':{qty:cpg,revenue:p.price*cpg},'네이버':{qty:nvr,revenue:p.price*nvr}}}).sort(function(a,b){return b.totalRevenue-a.totalRevenue});var channelMetrics=channels.map(function(ch){var rev=dailySales.reduce(function(s,d){return s+d[ch.name]},0),orders=Math.round(rev/(120000+Math.random()*40000));return{channel:ch.name,color:ch.color,revenue:rev,orders:orders,avgOrder:Math.round(rev/orders),sharePercent:Math.round(rev/totalRevenue*1000)/10,returnRate:(1.5+Math.random()*3).toFixed(1),convRate:(.5+Math.random()*1.5).toFixed(2),prevRevenue:Math.round(rev*(.85+Math.random()*.2))}});return{summary:{totalRevenue:totalRevenue,totalOrders:totalOrders,avgOrderValue:Math.round(totalRevenue/totalOrders)},channels:channelMetrics,dailySales:dailySales,topProducts:topProducts,trends:{revenue:(8+Math.random()*10).toFixed(1),orders:(5+Math.random()*8).toFixed(1),avgOrder:(2+Math.random()*5).toFixed(1)}}}
 function fW(v){return Math.round(v).toLocaleString()+'원'}function fK(v){if(v>=1e8)return(v/1e8).toFixed(1)+'억';if(v>=1e4)return Math.round(v/1e4).toLocaleString()+'만';return v.toLocaleString()}function fN(v){return v?v.toLocaleString():'0'}function fP(v){return Number(v).toFixed(1)+'%'}
-function showTab(id,btn){['overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
+function showTab(id,btn){['today','overview','collector','sales','products','inventory','analytics'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hide')});document.getElementById('tab-'+id).classList.remove('hide');document.querySelectorAll('.tabs button').forEach(function(b){b.classList.remove('on')});if(btn)btn.classList.add('on');if(id==='today')loadTodayTab();if(id==='overview')renderOverview();if(id==='collector'){loadCollectorStatus();loadCollectorHistory()}if(id==='sales'){loadSales30dBanner();loadSalesAnalysis();loadSalesAnalytics()};if(id==='products'){loadProductAnalysis();loadProductAnalytics()};if(id==='inventory')loadInventory();if(id==='analytics')initAnalyticsTab()}
 Chart.defaults.color='#6B6977';Chart.defaults.borderColor='#1C1F26';Chart.defaults.font.family="'Pretendard Variable',-apple-system,sans-serif";Chart.defaults.font.size=11;
 function makeChart(id,cfg){if(charts[id])charts[id].destroy();var el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg)}
 function changePeriod(){tryLoadFromAPI()}
@@ -830,7 +874,7 @@ function _convertDBtoDashboard(db){
 
 updateChannelStatus();
 tryLoadFromAPI();
-(function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=todayStr();if(s)s.value=daysAgo(30);var se=document.getElementById('salesEnd'),ss=document.getElementById('salesStart');if(se)se.value=todayStr();if(ss)ss.value=daysAgo(30)})();
+(function(){var e=document.getElementById('collectEnd'),s=document.getElementById('collectStart');if(e)e.value=todayStr();if(s)s.value=daysAgo(30);var se=document.getElementById('salesEnd'),ss=document.getElementById('salesStart');if(se)se.value=todayStr();if(ss)ss.value=daysAgo(30);loadTodayTab()})();
 
 
 
@@ -1293,6 +1337,233 @@ function renderMatchingTable(){
   });
   if(!h)h='<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:20px">데이터 없음</td></tr>';
   el.innerHTML=h;
+}
+// ═══ Today 탭 ═══
+async function loadTodayTab() {
+  var today = todayStr();
+  document.getElementById('todayDate').textContent = today;
+  
+  // 병렬로 데이터 로드
+  Promise.all([
+    loadTodayKpi(today),
+    loadTodaySalesChart(today),
+    loadTodayVisitorChart(today),
+    loadTodayTopProducts(today),
+    loadTodayReferers(today),
+    loadTodayStatus(today),
+    loadTodayRecentOrders(today)
+  ]);
+}
+
+async function loadTodayKpi(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/db/sales?start_date='+today+'&end_date='+today);
+    var j = await r.json();
+    var el = document.getElementById('todayKpi');
+    if (!el || !j.success) return;
+    var sm = j.data.summary||[];
+    var totalRev = sm.reduce(function(s,r){return s+r.total_amount},0);
+    var totalOrd = sm.reduce(function(s,r){return s+r.order_count},0);
+    var avgOrd = totalOrd>0?Math.round(totalRev/totalOrd):0;
+    
+    // 전일 비교
+    var yd = new Date(); yd.setDate(yd.getDate()-1); var yesterday = yd.toISOString().substring(0,10);
+    var r2 = await fetch(API_BASE+'/api/db/sales?start_date='+yesterday+'&end_date='+yesterday);
+    var j2 = await r2.json();
+    var ydRev = 0, ydOrd = 0;
+    if (j2.success && j2.data.summary) { j2.data.summary.forEach(function(r){ydRev+=r.total_amount;ydOrd+=r.order_count}); }
+    
+    var revDiff = ydRev>0?Math.round((totalRev-ydRev)/ydRev*1000)/10:0;
+    var ordDiff = ydOrd>0?Math.round((totalOrd-ydOrd)/ydOrd*1000)/10:0;
+    
+    el.innerHTML =
+      kpiCard('금일 매출', fW(totalRev), (revDiff>=0?'+':'')+revDiff+'%', revDiff>=0?'up':'dn', '전일 대비') +
+      kpiCard('금일 주문', fN(totalOrd)+'건', (ordDiff>=0?'+':'')+ordDiff+'%', ordDiff>=0?'up':'dn', '전일 대비') +
+      kpiCard('평균 주문가', fW(avgOrd), '', '', totalOrd+'건 기준') +
+      kpiCard('전일 매출', fW(ydRev), '', '', fN(ydOrd)+'건');
+  } catch(e) { console.log('[Today] KPI error:', e.message); }
+}
+
+async function loadTodaySalesChart(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/analytics/sales/times?start_date='+today+'&end_date='+today);
+    var j = await r.json();
+    var data = j.data;
+    if (!data) return;
+    // 첫 번째 배열 키 추출
+    var key = Object.keys(data).find(function(k){return Array.isArray(data[k])});
+    var arr = key ? data[key] : (Array.isArray(data)?data:[]);
+    
+    // 30분 단위로 시간대별 매출
+    var labels = [], values = [];
+    for (var h = 0; h < 24; h++) {
+      for (var m = 0; m < 2; m++) {
+        labels.push(String(h).padStart(2,'0')+':'+(m===0?'00':'30'));
+        values.push(0);
+      }
+    }
+    arr.forEach(function(d) {
+      var hour = parseInt(d.hour||d.time_slot||0);
+      var idx = hour * 2; // 30분 단위가 없으면 시간 단위
+      if (idx < values.length) {
+        var amt = parseFloat(d.order_amount||d.sales_amount||d.amount||0);
+        values[idx] += amt;
+      }
+    });
+    
+    makeChart('todaySalesChart',{type:'bar',data:{labels:labels,datasets:[{data:values,backgroundColor:'#3266ad40',borderColor:'#3266ad',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fK(v)}}},x:{ticks:{maxTicksLimit:12,font:{size:10}}}}}});
+  } catch(e) { console.log('[Today] Sales chart:', e.message); }
+}
+
+async function loadTodayVisitorChart(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/analytics/visitors/view?start_date='+today+'&end_date='+today);
+    var j = await r.json();
+    var data = j.data;
+    if (!data) return;
+    var key = Object.keys(data).find(function(k){return Array.isArray(data[k])});
+    var arr = key ? data[key] : (Array.isArray(data)?data:[]);
+    
+    var labels = [], vals = [];
+    arr.forEach(function(d) {
+      var dt = d.date || d.visit_date || '';
+      labels.push(dt.substring(5)||dt);
+      vals.push(parseInt(d.visit_count||d.visitor_count||d.unique_visit_count||0));
+    });
+    
+    if (!labels.length) {
+      // 시간별이 아니라 일별이면 단일 데이터
+      labels = [today.substring(5)];
+      vals = [arr.reduce(function(s,d){return s+parseInt(d.visit_count||d.visitor_count||0)},0)];
+    }
+    
+    makeChart('todayVisitorChart',{type:'bar',data:{labels:labels,datasets:[{data:vals,backgroundColor:'#22c55e40',borderColor:'#22c55e',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{ticks:{font:{size:10}}}}}});
+  } catch(e) { console.log('[Today] Visitor chart:', e.message); }
+}
+
+async function loadTodayTopProducts(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/db/sales?start_date='+today+'&end_date='+today);
+    var j = await r.json();
+    var products = j.data?.topProducts || [];
+    
+    // 주문 건수 TOP 10
+    var byQty = products.slice().sort(function(a,b){return b.total_qty-a.total_qty}).slice(0,10);
+    var el1 = document.getElementById('todayQtyTop');
+    if (el1) {
+      var h = '<table style="width:100%"><thead><tr><th>#</th><th>상품명</th><th style="text-align:right">건수</th><th style="text-align:right">금액</th></tr></thead><tbody>';
+      byQty.forEach(function(p,i){
+        h += '<tr><td style="color:var(--t3);font-size:11px">'+(i+1)+'</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.product_name+'">'+p.product_name+'</td><td style="text-align:right;font-weight:600">'+fN(p.total_qty)+'</td><td style="text-align:right;color:var(--t2)">'+fW(p.total_amount)+'</td></tr>';
+      });
+      h += '</tbody></table>';
+      el1.innerHTML = h || '<div style="padding:20px;text-align:center;color:var(--t3)">데이터 없음</div>';
+    }
+    
+    // 주문 금액 TOP 10
+    var byRev = products.slice().sort(function(a,b){return b.total_amount-a.total_amount}).slice(0,10);
+    var el2 = document.getElementById('todayRevTop');
+    if (el2) {
+      var h = '<table style="width:100%"><thead><tr><th>#</th><th>상품명</th><th style="text-align:right">금액</th><th style="text-align:right">건수</th></tr></thead><tbody>';
+      byRev.forEach(function(p,i){
+        h += '<tr><td style="color:var(--t3);font-size:11px">'+(i+1)+'</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.product_name+'">'+p.product_name+'</td><td style="text-align:right;font-weight:600">'+fW(p.total_amount)+'</td><td style="text-align:right;color:var(--t2)">'+fN(p.total_qty)+'</td></tr>';
+      });
+      h += '</tbody></table>';
+      el2.innerHTML = h || '<div style="padding:20px;text-align:center;color:var(--t3)">데이터 없음</div>';
+    }
+  } catch(e) { console.log('[Today] Top products:', e.message); }
+}
+
+async function loadTodayReferers(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/analytics/visitpaths/domains?start_date='+today+'&end_date='+today+'&limit=10&sort=visit_count&order=desc');
+    var j = await r.json();
+    var data = j.data;
+    var key = Object.keys(data||{}).find(function(k){return Array.isArray(data[k])});
+    var arr = key ? data[key] : (Array.isArray(data)?data:[]);
+    
+    var total = arr.reduce(function(s,d){return s+(d.visit_count||0)},0);
+    var top10 = arr.slice(0,10);
+    
+    // 도넛 차트
+    var colors = ['#3266ad','#e24b4a','#1d9e75','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+    makeChart('todayRefChart',{type:'doughnut',data:{labels:top10.map(function(d){return (d.domain||'기타').substring(0,15)}),datasets:[{data:top10.map(function(d){return d.visit_count||0}),backgroundColor:colors,borderWidth:0}]},options:{responsive:true,cutout:'60%',plugins:{legend:{display:false}}}});
+    
+    // 테이블
+    var el = document.getElementById('todayRefTable');
+    if (el) {
+      var h = '';
+      top10.forEach(function(d,i){
+        var rate = total>0?Math.round((d.visit_count||0)/total*1000)/10:0;
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bg3)"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+colors[i]+';margin-right:6px"></span>'+(d.domain||'기타').substring(0,20)+'</span><span style="font-weight:600">'+fN(d.visit_count||0)+' <span style="color:var(--t3);font-weight:400">('+rate+'%)</span></span></div>';
+      });
+      el.innerHTML = h;
+    }
+  } catch(e) { console.log('[Today] Referers:', e.message); }
+}
+
+async function loadTodayStatus(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/db/orders?limit=500');
+    var j = await r.json();
+    var orders = (j.data||[]).filter(function(o){return o.order_date===today});
+    
+    var statuses = {};
+    orders.forEach(function(o){
+      var s = o.status || 'unknown';
+      // 상태 한글 변환
+      var label = s;
+      if (s.startsWith('N')) label = '입금전';
+      else if (s === 'paid' || s.startsWith('P')) label = '결제완료';
+      else if (s.startsWith('prepare')) label = '상품준비';
+      else if (s.startsWith('ship') || s === 'shipping') label = '배송중';
+      else if (s.startsWith('finish') || s === 'delivered') label = '배송완료';
+      else if (s.startsWith('C') || s === 'cancel') label = '취소';
+      else if (s.startsWith('R') || s === 'return') label = '반품';
+      else if (s === 'CANCELED') label = '취소';
+      statuses[label] = (statuses[label]||0) + 1;
+    });
+    
+    var labels = Object.keys(statuses);
+    var vals = Object.values(statuses);
+    var colors = ['#22c55e','#3266ad','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#f97316','#6366f1'];
+    
+    makeChart('todayStatusChart',{type:'doughnut',data:{labels:labels,datasets:[{data:vals,backgroundColor:colors.slice(0,labels.length),borderWidth:0}]},options:{responsive:true,cutout:'60%',plugins:{legend:{display:false}}}});
+    
+    var el = document.getElementById('todayStatusTable');
+    if (el) {
+      var total = vals.reduce(function(s,v){return s+v},0);
+      var h = '';
+      labels.forEach(function(l,i){
+        var rate = total>0?Math.round(vals[i]/total*1000)/10:0;
+        h += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bg3)"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+colors[i]+';margin-right:6px"></span>'+l+'</span><span style="font-weight:600">'+fN(vals[i])+'건 <span style="color:var(--t3);font-weight:400">('+rate+'%)</span></span></div>';
+      });
+      el.innerHTML = h || '<div style="color:var(--t3);font-size:12px;text-align:center;padding:10px">데이터 없음</div>';
+    }
+  } catch(e) { console.log('[Today] Status:', e.message); }
+}
+
+async function loadTodayRecentOrders(today) {
+  try {
+    var r = await fetch(API_BASE+'/api/db/orders?limit=50');
+    var j = await r.json();
+    var orders = (j.data||[]).filter(function(o){return o.order_date===today}).slice(0,20);
+    var el = document.getElementById('todayRecentOrders');
+    if (!el) return;
+    
+    var h = '';
+    orders.forEach(function(o){
+      var statusColor = 'var(--t2)';
+      if (o.status && (o.status.startsWith('C')||o.status==='CANCELED')) statusColor = 'var(--red)';
+      else if (o.status && (o.status.startsWith('R'))) statusColor = 'var(--amb)';
+      h += '<tr><td style="font-size:11px;color:var(--t3);white-space:nowrap">'+(o.order_date||'').substring(5)+'</td>';
+      h += '<td style="font-size:11px;color:var(--t3)">'+o.order_id+'</td>';
+      h += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+o.product_name+'">'+o.product_name+'</td>';
+      h += '<td style="text-align:right">'+fN(o.quantity)+'</td>';
+      h += '<td style="text-align:right;font-weight:600">'+fW(o.amount)+'</td>';
+      h += '<td style="color:'+statusColor+';font-size:11px">'+(o.status||'-')+'</td></tr>';
+    });
+    el.innerHTML = h || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">금일 주문 없음</td></tr>';
+  } catch(e) { console.log('[Today] Recent orders:', e.message); }
 }
 function setPagePeriod(page, type) {
   var sdId = page === 'sales' ? 'salesStart' : 'prodStart';
