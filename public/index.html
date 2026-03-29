@@ -106,10 +106,18 @@ canvas{max-height:300px}
   <!-- KPI 배너 -->
   <div class="g4" id="todayKpi" style="margin-bottom:16px"></div>
 
-  <!-- 시간대별 매출 + 방문자 차트 -->
-  <div class="g2" style="margin-bottom:16px">
-    <div class="cd"><div class="ct">시간대별 매출·구매자</div><canvas id="todaySalesChart"></canvas></div>
-    <div class="cd"><div class="ct">시간대별 방문자수 추이</div><canvas id="todayVisitorChart"></canvas></div>
+  <!-- 비교 기간 선택 -->
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+    <span style="font-size:12px;color:var(--t3)">비교:</span>
+    <button class="collect-btn" onclick="setTodayCompare('yesterday')" id="todayCmpYd" style="padding:4px 12px;font-size:11px;background:var(--grn);color:#fff;border-color:var(--grn)">전일</button>
+    <button class="collect-btn" onclick="setTodayCompare('lastWeek')" id="todayCmpLw" style="padding:4px 12px;font-size:11px">전주 동요일</button>
+    <button class="collect-btn" onclick="setTodayCompare('none')" id="todayCmpNone" style="padding:4px 12px;font-size:11px">비교 없음</button>
+  </div>
+  <!-- 시간대별 차트 3개 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="cd"><div class="ct">시간대별 매출</div><canvas id="todayHourlySales"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 구매자수</div><canvas id="todayHourlyBuyers"></canvas></div>
+    <div class="cd"><div class="ct">시간대별 주문수</div><canvas id="todayHourlyOrders"></canvas></div>
   </div>
 
   <!-- 주문건수 TOP10 + 주문금액 TOP10 -->
@@ -1346,8 +1354,7 @@ async function loadTodayTab() {
   // 병렬로 데이터 로드
   Promise.all([
     loadTodayKpi(today),
-    loadTodaySalesChart(today),
-    loadTodayVisitorChart(today),
+    loadTodayHourlyCharts(today),
     loadTodayTopProducts(today),
     loadTodayReferers(today),
     loadTodayStatus(today),
