@@ -320,17 +320,23 @@ class OrderDB {
         if (items.length <= 1) {
           return [{ id:`c24_${orderId}`, channel, order_id:orderId, order_date:orderDate, status, product_name:items[0]?.product_name||'', product_no:String(items[0]?.product_no||''), variant_code:String(items[0]?.custom_variant_code||items[0]?.variant_code||''), quantity:items.reduce((s,i)=>s+parseInt(i.quantity||1),0)||1, amount:parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0), customer, raw_json:'' }];
         }
-        // 여러 items → item별 분리 저장
-        return items.map((item, idx) => ({
-          id:`c24_${orderId}_${idx}`,
-          channel, order_id:orderId, order_date:orderDate, status,
-          product_name:item.product_name||'',
-          product_no:String(item.product_no||''),
-          variant_code:String(item.custom_variant_code||item.variant_code||''),
-          quantity:parseInt(item.quantity||1),
-          amount:parseFloat(item.payment_amount||item.product_price||0)*parseInt(item.quantity||1),
-          customer, raw_json:''
-        }));
+        // 여러 items → item별 분리 저장 (주문 결제금액을 item별 비례 배분)
+        const totalPayment = parseFloat(raw.payment_amount||raw.actual_payment_amount||raw.total_price||0);
+        const itemSum = items.reduce((s,it) => s + parseFloat(it.product_price||0)*parseInt(it.quantity||1), 0);
+        return items.map((item, idx) => {
+          const itemAmt = parseFloat(item.product_price||0)*parseInt(item.quantity||1);
+          const ratio = itemSum > 0 ? itemAmt / itemSum : 1 / items.length;
+          return {
+            id:`c24_${orderId}_${idx}`,
+            channel, order_id:orderId, order_date:orderDate, status,
+            product_name:item.product_name||'',
+            product_no:String(item.product_no||''),
+            variant_code:String(item.custom_variant_code||item.variant_code||''),
+            quantity:parseInt(item.quantity||1),
+            amount:Math.round(totalPayment * ratio),
+            customer, raw_json:''
+          };
+        });
       }
       case '쿠팡': return [{ id:`cpg_${raw.orderId||raw.shipmentBoxId||Date.now()}`, channel, order_id:String(raw.orderId||raw.shipmentBoxId||''), order_date:(raw.orderedAt||raw.createdAt||'').substring(0,10), status:raw.status||'', product_name:raw.vendorItemName||'', product_no:String(raw.vendorItemId||''), variant_code:'', quantity:parseInt(raw.shippingCount||1), amount:parseFloat(raw.orderPrice||raw.totalPrice||0), customer:raw.receiver?.name||'', raw_json:'' }];
       case '네이버': return [{ id:`nvr_${raw.productOrderId||raw.orderId||Date.now()}`, channel, order_id:String(raw.productOrderId||raw.orderId||''), order_date:(raw.orderDate||raw.paymentDate||'').substring(0,10), status:raw._searchStatus||raw.productOrderStatus||'', product_name:raw.productName||'', product_no:String(raw.productId||''), variant_code:'', quantity:parseInt(raw.quantity||1), amount:parseFloat(raw.totalPaymentAmount||raw.paymentAmount||0), customer:raw.ordererName||'', raw_json:'' }];
