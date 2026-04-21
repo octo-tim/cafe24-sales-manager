@@ -1121,7 +1121,7 @@ async function loadTodayKpi(today) {
     var avgOrd = totalOrd>0?Math.round(totalRev/totalOrd):0;
     
     // 전일 비교
-    var yd = new Date(); yd.setDate(yd.getDate()-1); var yesterday = yd.toISOString().substring(0,10);
+    var yesterday = daysAgo(1);
     var r2 = await fetch(API_BASE+'/api/db/sales?start_date='+yesterday+'&end_date='+yesterday);
     var j2 = await r2.json();
     var ydRev = 0, ydOrd = 0;
