@@ -143,6 +143,7 @@ const collector = {
     }
 
     this.isRunning = true;
+    this._startTime = Date.now();
     const startTime = Date.now();
     const now = new Date();
 
@@ -216,6 +217,20 @@ app.get('/auth/callback', async (req, res) => {
     res.redirect('/?auth=success');
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
+/** POST /auth/refresh — 카페24 토큰 강제 갱신 */
+app.post('/auth/refresh', async (req, res) => {
+  try {
+    await cafe24.refreshAccessToken();
+    res.json({ success: true, message: '토큰 갱신 성공', expiresAt: cafe24.tokens?.expires_at });
+  } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
+/** POST /api/collector/reset — 수집 상태 강제 리셋 */
+app.post('/api/collector/reset', (req, res) => {
+  collector.isRunning = false;
+  res.json({ success: true, message: '수집 상태 리셋 완료' });
+});
+
 app.get('/auth/status', (req, res) => {
   const ch = [];
   if (cafe24.tokens?.access_token) { const exp = new Date(cafe24.tokens.expires_at); ch.push({ channel: '카페24', authenticated: true, valid: exp > new Date() }); }
